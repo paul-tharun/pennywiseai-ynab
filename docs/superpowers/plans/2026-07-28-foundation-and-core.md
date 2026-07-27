@@ -6,7 +6,7 @@
 
 **Architecture:** A single Android app module (`:app`) depends on the KMP `:parser-core` module included from a git submodule of `pennywiseai-tracker`. AGP resolves parser-core's `jvm()` variant (parser-core has no Android target; this is the exact mechanism the tracker's own app uses). Plan 1 adds only pure JVM logic in `:app` — no networking, no Room, no UI beyond a placeholder Activity. Everything here is exercised by fast JVM unit tests (`testDebugUnitTest`); `assembleDebug` additionally proves parser-core dexes into the APK.
 
-**Tech Stack:** Kotlin 2.3.21, AGP 9.2.1, Gradle 9.4.1 (wrapper), Hilt 2.59.2 (bootstrapped, no modules yet), Jetpack Compose (placeholder screen only), kotlinx.serialization 1.11.0 (for the YNAB model), JUnit4 for unit tests. `parser-core` pinned to `pennywiseai-tracker@02a521cc5e198af93ea6631afc6c76352af86bd9` (release tag **v2.9.0**). _(Original plan pinned `1347ce50…`, which does not exist upstream; repinned to v2.9.0 by human decision on 2026-07-28.)_
+**Tech Stack:** Kotlin 2.3.21, AGP 9.2.1, Gradle 9.4.1 (wrapper), Hilt 2.59.2 (bootstrapped, no modules yet), Jetpack Compose (placeholder screen only), kotlinx.serialization 1.11.0 (for the YNAB model), JUnit4 for unit tests. `parser-core` pinned to `pennywiseai-tracker@73e7de57f989589417d156af7ca36bf5b8051da2` (release tag **v2.17.1**). _(Original plan pinned `1347ce50…`, which does not exist upstream. v2.9.0 predates the parser-core module. Repinned to v2.17.1 — the latest release tag whose `ParsedTransaction`/`TransactionType`/`BankParserFactory` API matches this plan's documented ground truth verbatim — on 2026-07-28.)_
 
 ## Global Constraints
 
@@ -102,7 +102,7 @@ Module note (deviation from the spec's simplified tree): the spec draws `parser-
 ```bash
 cd /Users/paul/factly/playground/pennywiseai-ynab
 git submodule add https://github.com/sarim2000/pennywiseai-tracker.git third_party/pennywiseai-tracker
-git -C third_party/pennywiseai-tracker checkout 02a521cc5e198af93ea6631afc6c76352af86bd9  # tag v2.9.0
+git -C third_party/pennywiseai-tracker checkout 73e7de57f989589417d156af7ca36bf5b8051da2  # tag v2.17.1
 git submodule update --init --recursive
 ```
 
