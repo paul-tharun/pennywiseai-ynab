@@ -1,0 +1,74 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    id("com.google.devtools.ksp")
+    id("com.google.dagger.hilt.android")
+}
+
+android {
+    namespace = "com.pennywiseai.ynab"
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "com.pennywiseai.ynab"
+        minSdk = 26
+        targetSdk = 36
+        versionCode = 1
+        versionName = "0.1.0"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+        }
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
+
+// parser-core (jvmToolchain 21) ships class files at bytecode level 21. The app itself
+// still targets Java 11 bytecode (see compileOptions/jvmTarget above), but the unit-test
+// JVM that loads parser-core's classes off the test classpath must be at least JDK 21,
+// or class loading fails with UnsupportedClassVersionError before any test body runs.
+// This only selects which JDK *executes* the test process; it does not change what
+// bytecode version javac/kotlinc emit for :app's own sources.
+tasks.withType<Test>().configureEach {
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(21))
+        }
+    )
+}
+
+dependencies {
+    implementation(project(":parser-core"))
+
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.material3)
+    implementation(libs.kotlinx.serialization.json)
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.android.compiler)
+
+    testImplementation(libs.junit)
+}
