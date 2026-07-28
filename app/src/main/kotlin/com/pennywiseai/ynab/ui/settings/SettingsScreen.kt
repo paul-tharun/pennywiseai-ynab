@@ -34,32 +34,16 @@ fun SettingsScreen(
     onTokenCleared: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
-    val tokenState by viewModel.tokenState.collectAsStateWithLifecycle()
     val brokenRules by viewModel.brokenRules.collectAsStateWithLifecycle()
-    var token by remember { mutableStateOf("") }
 
     LazyColumn(Modifier.fillMaxWidth().padding(16.dp)) {
         item {
             Text("YNAB token", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = token,
-                onValueChange = { token = it },
-                label = { Text("Personal Access Token") },
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            // Token field + save/validate + state display are shared with onboarding via TokenEntry (DRY).
+            TokenEntry(viewModel)
             Row {
-                Button(onClick = { viewModel.saveToken(token); token = "" }) { Text("Save & validate") }
-                Spacer(Modifier.height(8.dp))
                 OutlinedButton(onClick = { viewModel.refresh() }) { Text("Refresh") }
                 TextButton(onClick = { viewModel.clearToken(); onTokenCleared() }) { Text("Clear") }
-            }
-            when (val s = tokenState) {
-                is TokenUiState.Saving -> Text("Validating…")
-                is TokenUiState.Saved -> Text("Saved · ${s.budgetCount} budgets, ${s.accountCount} accounts")
-                is TokenUiState.Error -> Text(s.message, color = MaterialTheme.colorScheme.error)
-                TokenUiState.Idle -> Unit
             }
         }
 
@@ -91,5 +75,30 @@ fun SettingsScreen(
         // Rules list + unrouted suggestions are rendered by RulesList (Task 8), which
         // reads its own RulesViewModel. It is embedded here so Settings is the one hub.
         item { RulesList(onEditRule = onEditRule, onMapSuggestion = onMapSuggestion) }
+    }
+}
+
+/**
+ * Reusable token entry: password field + save/validate button + inline validation state.
+ * Shared by [SettingsScreen] and the onboarding token step so the field/state live in one place.
+ */
+@Composable
+fun TokenEntry(viewModel: SettingsViewModel) {
+    var token by remember { mutableStateOf("") }
+    val state by viewModel.tokenState.collectAsStateWithLifecycle()
+    OutlinedTextField(
+        value = token,
+        onValueChange = { token = it },
+        label = { Text("Personal Access Token") },
+        visualTransformation = PasswordVisualTransformation(),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Button(onClick = { viewModel.saveToken(token) }) { Text("Save & validate") }
+    when (val s = state) {
+        is TokenUiState.Saving -> Text("Validating…")
+        is TokenUiState.Saved -> Text("Token valid · ${s.budgetCount} budgets")
+        is TokenUiState.Error -> Text(s.message, color = MaterialTheme.colorScheme.error)
+        TokenUiState.Idle -> Unit
     }
 }
