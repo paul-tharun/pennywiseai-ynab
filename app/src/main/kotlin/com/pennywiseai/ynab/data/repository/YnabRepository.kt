@@ -7,6 +7,7 @@ import com.pennywiseai.ynab.data.local.entity.AccountEntity
 import com.pennywiseai.ynab.data.mapper.toDomain
 import com.pennywiseai.ynab.data.remote.YnabApi
 import com.pennywiseai.ynab.data.remote.toEntity
+import com.pennywiseai.ynab.data.state.PostingStateStore
 import com.pennywiseai.ynab.data.token.TokenStore
 import retrofit2.Response
 import java.io.IOException
@@ -24,12 +25,17 @@ class YnabRepository @Inject constructor(
     private val snapshotDao: SnapshotDao,
     private val mappingRuleDao: MappingRuleDao,
     private val tokenStore: TokenStore,
+    private val postingState: PostingStateStore,
 ) {
 
     /** Store the PAT, then validate it + refresh the snapshot in one flow. */
     suspend fun saveTokenAndRefresh(token: String): SnapshotResult {
         tokenStore.setToken(token)
-        return refreshSnapshot()
+        val result = refreshSnapshot()
+        // A validated token resumes posting (design spec, Error handling). A 401/Error
+        // leaves the flag as-is so the pipeline keeps short-circuiting.
+        if (result is SnapshotResult.Success) postingState.setPaused(false)
+        return result
     }
 
     /** Re-pull budgets → accounts and atomically replace the local snapshot. */

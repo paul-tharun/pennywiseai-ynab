@@ -12,6 +12,7 @@ import com.pennywiseai.ynab.data.remote.dto.BudgetDto
 import com.pennywiseai.ynab.data.remote.dto.BudgetsData
 import com.pennywiseai.ynab.data.remote.dto.BudgetsResponse
 import com.pennywiseai.ynab.data.remote.dto.CurrencyFormatDto
+import com.pennywiseai.ynab.data.state.FakePostingStateStore
 import com.pennywiseai.ynab.data.token.FakeTokenStore
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
@@ -36,6 +37,7 @@ class YnabRepositoryTest {
     private lateinit var api: FakeYnabApi
     private lateinit var tokenStore: FakeTokenStore
     private lateinit var repository: YnabRepository
+    private val postingState = FakePostingStateStore()
 
     @Before
     fun setUp() {
@@ -45,7 +47,7 @@ class YnabRepositoryTest {
         ).allowMainThreadQueries().build()
         api = FakeYnabApi()
         tokenStore = FakeTokenStore()
-        repository = YnabRepository(api, db.snapshotDao(), db.mappingRuleDao(), tokenStore)
+        repository = YnabRepository(api, db.snapshotDao(), db.mappingRuleDao(), tokenStore, postingState)
     }
 
     @After
@@ -218,5 +220,28 @@ class YnabRepositoryTest {
         repository.refreshSnapshot()
 
         assertFalse(db.mappingRuleDao().getAll().single().broken) // self-healed
+    }
+
+    @Test
+    fun `a successful token save clears postingPaused`() = runTest {
+        postingState.setPaused(true) // simulate a prior 401
+        api.budgets = { budgetsOk(budget("b1", "USD")) }
+        api.accountsByBudget = { accountsOk() }
+
+        val result = repository.saveTokenAndRefresh("new-valid-pat")
+
+        assertTrue(result is SnapshotResult.Success)
+        assertFalse(postingState.isPaused())
+    }
+
+    @Test
+    fun `an unauthorized token save leaves postingPaused set`() = runTest {
+        postingState.setPaused(true)
+        api.budgets = { Response.error(401, "{}".toResponseBody("application/json".toMediaType())) }
+
+        val result = repository.saveTokenAndRefresh("still-bad")
+
+        assertEquals(SnapshotResult.Unauthorized, result)
+        assertTrue(postingState.isPaused())
     }
 }
