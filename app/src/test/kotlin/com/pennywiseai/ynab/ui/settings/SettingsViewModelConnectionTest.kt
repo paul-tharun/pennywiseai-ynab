@@ -145,4 +145,52 @@ class SettingsViewModelConnectionTest {
         assertEquals(2, info.budgetCount)
         assertEquals(3, info.accountCount)
     }
+
+    @Test
+    fun `saveToken reloads connection counts from the newly-saved snapshot`() = runTest(dispatcher) {
+        val api = FakeYnabApi()
+        api.budgets = {
+            Response.success(
+                BudgetsResponse(
+                    BudgetsData(
+                        listOf(
+                            BudgetDto(id = "b1", name = "Personal", currencyFormat = CurrencyFormatDto("INR")),
+                            BudgetDto(id = "b2", name = "Business", currencyFormat = CurrencyFormatDto("USD")),
+                        ),
+                    ),
+                ),
+            )
+        }
+        api.accountsByBudget = { budgetId ->
+            val accounts = if (budgetId == "b1") {
+                listOf(AccountDto(id = "a1", name = "Everyday", closed = false, deleted = false))
+            } else {
+                listOf(
+                    AccountDto(id = "a2", name = "Checking", closed = false, deleted = false),
+                    AccountDto(id = "a3", name = "Savings", closed = false, deleted = false),
+                )
+            }
+            Response.success(AccountsResponse(AccountsData(accounts)))
+        }
+        val repository = YnabRepository(
+            api, db.snapshotDao(), db.mappingRuleDao(), FakeTokenStore(), FakePostingStateStore(),
+        )
+        val vm = SettingsViewModel(
+            repository = repository,
+            tokenStore = FakeTokenStore(),
+            postingState = FakePostingStateStore(),
+            mappingRuleDao = db.mappingRuleDao(),
+            processedMessageDao = db.processedMessageDao(),
+            enqueuer = BackfillEnqueuer { _, _ -> },
+            snapshotDao = db.snapshotDao(),
+        )
+
+        vm.saveToken("test-token")
+
+        // saveToken hops onto the real Dispatchers.IO too; await the reloaded value the same
+        // way the refresh test does, rather than relying on advanceUntilIdle().
+        val info = vm.connection.first { it != null && it.budgetCount == 2 }!!
+        assertEquals(2, info.budgetCount)
+        assertEquals(3, info.accountCount)
+    }
 }

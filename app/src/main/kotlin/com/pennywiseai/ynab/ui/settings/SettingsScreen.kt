@@ -1,6 +1,5 @@
 package com.pennywiseai.ynab.ui.settings
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,9 +42,13 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val connection by viewModel.connection.collectAsStateWithLifecycle()
+    val tokenState by viewModel.tokenState.collectAsStateWithLifecycle()
     var replacing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.loadConnection() }
+    // A successful replace means the connected row now has fresh counts; drop back to it instead
+    // of leaving the token field + Cancel button stuck on screen.
+    LaunchedEffect(tokenState) { if (tokenState is TokenUiState.Saved) replacing = false }
 
     LazyColumn(Modifier.fillMaxWidth().padding(16.dp)) {
         item { SectionTitle("YNAB") }

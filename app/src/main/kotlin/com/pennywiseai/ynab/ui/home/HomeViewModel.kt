@@ -81,18 +81,24 @@ class HomeViewModel @Inject constructor(
     /**
      * Re-scan the last 24 hours to catch anything the real-time receiver missed. Idempotent
      * (import_id dedup), so it is safe to tap repeatedly. Waits for THIS run to actually go
-     * Running before accepting a Done, so a stale terminal WorkInfo replay can't short-circuit
-     * the result to a previous import's tally.
+     * Running before accepting a terminal state, so a stale terminal WorkInfo replay can't
+     * short-circuit the result to a previous import's tally. Terminates on the first settled
+     * state after that: Done -> the imported tally, Idle (CaptureScheduler's mapping of a
+     * CANCELLED or FAILED run) -> back to Idle rather than hanging in Running forever.
      */
     fun rescan() {
         if (_rescanState.value == RescanState.Running) return
         _rescanState.value = RescanState.Running
         enqueuer.enqueue(now() - DAY_MILLIS, now())
         viewModelScope.launch {
-            val done = observer.status()
+            val settled = observer.status()
                 .dropWhile { it !is BackfillRun.Running }
-                .first { it is BackfillRun.Done } as BackfillRun.Done
-            _rescanState.value = RescanState.Result(imported = done.posted)
+                .first { it !is BackfillRun.Running }
+            _rescanState.value = when (settled) {
+                is BackfillRun.Done -> RescanState.Result(imported = settled.posted)
+                BackfillRun.Idle -> RescanState.Idle
+                is BackfillRun.Running -> RescanState.Idle // unreachable: excluded by the predicate above
+            }
         }
     }
 

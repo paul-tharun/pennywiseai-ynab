@@ -23,7 +23,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -52,6 +51,17 @@ fun OnboardingScreen(
     var mappedCard by remember { mutableStateOf(false) }
     var showEditor by remember { mutableStateOf(false) }
 
+    if (showEditor) {
+        // Full-screen swap (not nested in the checklist's verticalScroll below): RuleEditorScreen
+        // owns its own Scaffold, which needs bounded/max-height constraints to measure, not the
+        // unbounded height a scroll container hands its content.
+        RuleEditorScreen(
+            args = Screen.RuleEditor(),
+            onDone = { mappedCard = true; showEditor = false },
+        )
+        return
+    }
+
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         Text("Set up pennywise-ynab", style = MaterialTheme.typography.headlineSmall)
         Text(
@@ -77,14 +87,7 @@ fun OnboardingScreen(
             }
 
             ChecklistItem(done = mappedCard, title = "Map your first card  ·  OPTIONAL") {
-                if (showEditor) {
-                    RuleEditorScreen(
-                        args = Screen.RuleEditor(),
-                        onDone = { mappedCard = true; showEditor = false },
-                    )
-                } else {
-                    OutlinedButton(onClick = { showEditor = true }) { Text("Add a route") }
-                }
+                OutlinedButton(onClick = { showEditor = true }) { Text("Add a route") }
             }
         }
 

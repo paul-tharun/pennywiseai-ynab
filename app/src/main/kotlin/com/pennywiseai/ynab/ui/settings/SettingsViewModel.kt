@@ -79,6 +79,7 @@ class SettingsViewModel @Inject constructor(
             when (val result = withContext(Dispatchers.IO) { repository.saveTokenAndRefresh(token.trim()) }) {
                 is SnapshotResult.Success -> {
                     _tokenState.value = TokenUiState.Saved(result.budgetCount, result.accountCount)
+                    reloadConnection() // keep the "Connected · N budgets · M accounts" row current
                     retryFailedFrom(System.currentTimeMillis()) // spec: bulk-retry every FAILED on validated save
                 }
                 SnapshotResult.Unauthorized -> _tokenState.value = TokenUiState.Error("Token rejected by YNAB (401)")

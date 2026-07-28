@@ -107,4 +107,19 @@ class HomeViewModelTest {
 
         assertEquals(RescanState.Result(imported = 3), vm.rescanState.value)
     }
+
+    @Test
+    fun `rescan settles back to Idle when the run is cancelled or fails`() = runTest {
+        val vm = vm()
+        vm.rescan()
+        advanceUntilIdle()
+        assertEquals(RescanState.Running, vm.rescanState.value)
+
+        runFlow.value = BackfillRun.Running(done = 1, total = 3)
+        advanceUntilIdle()
+        runFlow.value = BackfillRun.Idle // CaptureScheduler maps a CANCELLED/FAILED run to Idle
+        advanceUntilIdle()
+
+        assertEquals(RescanState.Idle, vm.rescanState.value)
+    }
 }
