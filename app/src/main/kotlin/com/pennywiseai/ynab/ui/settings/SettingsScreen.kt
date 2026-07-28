@@ -15,6 +15,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -86,6 +87,9 @@ fun SettingsScreen(
 fun TokenEntry(viewModel: SettingsViewModel) {
     var token by remember { mutableStateOf("") }
     val state by viewModel.tokenState.collectAsStateWithLifecycle()
+    // Clear the field only after a SUCCESSFUL save so a sensitive PAT doesn't linger in state;
+    // preserve input on validation failure so the user isn't forced to retype a long token.
+    LaunchedEffect(state) { if (state is TokenUiState.Saved) token = "" }
     OutlinedTextField(
         value = token,
         onValueChange = { token = it },
@@ -97,7 +101,7 @@ fun TokenEntry(viewModel: SettingsViewModel) {
     Button(onClick = { viewModel.saveToken(token) }) { Text("Save & validate") }
     when (val s = state) {
         is TokenUiState.Saving -> Text("Validating…")
-        is TokenUiState.Saved -> Text("Token valid · ${s.budgetCount} budgets")
+        is TokenUiState.Saved -> Text("Token valid · ${s.budgetCount} budgets, ${s.accountCount} accounts")
         is TokenUiState.Error -> Text(s.message, color = MaterialTheme.colorScheme.error)
         TokenUiState.Idle -> Unit
     }
