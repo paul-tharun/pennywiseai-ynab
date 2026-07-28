@@ -21,6 +21,9 @@ import javax.inject.Singleton
  * then groups postables by budget and bulk-POSTs in chunks. A bulk POST is atomic, so a
  * chunk 400 (a genuine bad element) falls back to individual POSTs — good rows POSTED,
  * only the bad row(s) FAILED. Duplicates are POSTED (not errors). Idempotent via import_id.
+ *
+ * Classification runs against a rules SNAPSHOT taken once at run start (battery: an
+ * N-message backfill must not re-read the rules table N times).
  */
 @Singleton
 class BackfillProcessor @Inject constructor(
@@ -47,10 +50,14 @@ class BackfillProcessor @Inject constructor(
         val total = messages.size
         val postables = mutableListOf<Classification.Postable>()
 
+        // One rules snapshot for the whole batch: the table is read once per run, not once
+        // per message. Phase 2's setBroken() can't stale it — all classification is done by then.
+        val rules = pipeline.currentRules()
+
         // Phase 1: classify + record terminal outcomes locally (no network).
         for ((index, message) in messages.withIndex()) {
             if (isCancelled()) return tally.toSummary()
-            when (val c = pipeline.classify(message.body, message.sender, message.timestamp)) {
+            when (val c = pipeline.classify(message.body, message.sender, message.timestamp, rules)) {
                 is Classification.Dropped -> {} // never logged
                 is Classification.Skipped -> { record(c.parsed, c.importId, c.status); tally.skipped++ }
                 is Classification.AlreadyPosted -> tally.posted++ // already POSTED; row stands

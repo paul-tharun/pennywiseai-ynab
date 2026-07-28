@@ -1,8 +1,8 @@
-# PennyWise → YNAB — Design Spec
+# pennywise-ynab — Design Spec
 
 **Date:** 2026-07-28
 **Status:** Approved design, pre-implementation — refined during a grilling session
-**Working title:** PennyWise → YNAB (repo: `pennywiseai-ynab`)
+**Working title:** pennywise-ynab (repo: `pennywiseai-ynab`)
 
 > **Refined during grilling (2026-07-28).** Several sections below were sharpened
 > against `parser-core` ground truth and the YNAB API. The authoritative record

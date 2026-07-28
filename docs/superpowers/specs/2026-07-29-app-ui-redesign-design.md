@@ -1,4 +1,4 @@
-# PennyWise → YNAB — UI Redesign Design
+# pennywise-ynab — UI Redesign Design
 
 **Date:** 2026-07-29
 **Status:** Approved (design), pending implementation plan
@@ -60,7 +60,7 @@ Mockups are archived under `.superpowers/brainstorm/` (gitignored). Filenames no
 
 Replaces the flat History list.
 
-- **Header (replaces the "PennyWise" wordmark):** a small ₹ tile + **"Last transaction · 2 minutes ago"** with a secondary "Today at 9:12 AM". Tracks time since the most recent *processed* message (reflects spending activity, not a sync cycle — the app is event-driven, so there is no "sync"). A **⟳ re-scan** button covers messages the real-time `SmsReceiver` may have missed (dropped/delayed broadcast, doze, force-stop, late-granted permission).
+- **Header (replaces the "pennywise-ynab" wordmark):** a small ₹ tile + **"Last transaction · 2 minutes ago"** with a secondary "Today at 9:12 AM". Tracks time since the most recent *processed* message (reflects spending activity, not a sync cycle — the app is event-driven, so there is no "sync"). A **⟳ re-scan** button covers messages the real-time `SmsReceiver` may have missed (dropped/delayed broadcast, doze, force-stop, late-granted permission).
   - **Behavior:** enqueues a short backfill over the **last 24 hours** (`now − 24h … now`) via the existing `enqueueBackfill` machinery. Idempotent dedupe means already-processed messages are skipped, so it's safe to tap repeatedly.
   - **New capability (beyond restyling):** a thin "re-scan recent" action wrapping `enqueueBackfill(now − 24h, now)`, plus a transient result state — "Checked · nothing new" or "Imported N". While it runs, the ⟳ shows a spinning/disabled state.
 - **Stat strip:** three tappable tiles — **Posted / Failed / Unrouted**. Numbers sized modestly. Tapping a tile filters the list below to that status; an active tile shows an outline, the list header switches to e.g. "Unrouted · 1" with a "Show all ✕" clear. (Failed/Unrouted tiles use error/warning container colors.)
@@ -89,7 +89,7 @@ Replaces text-fields + chip-grids. Compact scale.
 
 Replaces the three stacked text steps. **Single dense screen**, no wizard:
 
-- Header "Set up PennyWise" + one-line intro.
+- Header "Set up pennywise-ynab" + one-line intro.
 - A **three-item checklist** in a fixed-height scrolling viewport (thin scrollbar when it overflows); items fill in checkmarks as completed:
   1. **Allow reading bank texts** (SMS + notifications; states the on-device reassurance).
   2. **Connect YNAB** — token field, inline validation ("✓ Valid · N budgets, N accounts"), "Where do I find this?" link.

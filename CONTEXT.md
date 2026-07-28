@@ -1,4 +1,4 @@
-# PennyWise → YNAB
+# pennywise-ynab
 
 A standalone Android app that reads bank SMS on-device, parses each into a
 transaction with PennyWise's `parser-core`, and posts it to the YNAB API fully

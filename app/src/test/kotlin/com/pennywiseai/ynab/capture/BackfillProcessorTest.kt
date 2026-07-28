@@ -131,6 +131,14 @@ class BackfillProcessorTest {
     }
 
     @Test
+    fun `the rules table is read once per run, not once per message`() = runTest {
+        val messages = (1..25).map { sms("HDFC $it", it.toLong()) }
+        val summary = processor().run(messages)
+        assertEquals(25, summary.posted) // all 25 really were classified and posted
+        assertEquals(1, ruleDao.getAllCalls) // one snapshot, not 25 full-table reads
+    }
+
+    @Test
     fun `cancellation before posting stops the run`() = runTest {
         val summary = processor().run(
             messages = listOf(sms("HDFC a", 1), sms("HDFC b", 2)),

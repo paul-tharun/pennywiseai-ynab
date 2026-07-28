@@ -37,7 +37,7 @@ fun OnboardingScreen(
     val tokenState by settings.tokenState.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        Text("Welcome to PennyWise → YNAB", style = MaterialTheme.typography.headlineSmall)
+        Text("Welcome to pennywise-ynab", style = MaterialTheme.typography.headlineSmall)
         when (step) {
             0 -> {
                 Text("Grant SMS + notification permissions so the app can read bank messages.")

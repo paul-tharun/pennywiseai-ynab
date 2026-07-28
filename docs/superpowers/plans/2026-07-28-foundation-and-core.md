@@ -1,4 +1,4 @@
-# PennyWise → YNAB — Plan 1: Foundation & Core Implementation Plan
+# pennywise-ynab — Plan 1: Foundation & Core Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -300,7 +300,7 @@ dependencies {
     <application
         android:name=".PennyWiseYnabApp"
         android:allowBackup="true"
-        android:label="PennyWise → YNAB"
+        android:label="pennywise-ynab"
         android:supportsRtl="true"
         android:theme="@style/Theme.PennyWiseYnab">
         <activity
@@ -348,7 +348,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface {
-                    Text("PennyWise → YNAB — setup pending")
+                    Text("pennywise-ynab — setup pending")
                 }
             }
         }

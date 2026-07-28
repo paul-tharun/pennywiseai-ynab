@@ -4,6 +4,7 @@ import com.pennywiseai.parser.core.ParsedTransaction
 import com.pennywiseai.ynab.core.MappingResolver
 import com.pennywiseai.ynab.core.TransactionMapper
 import com.pennywiseai.ynab.core.isPostable
+import com.pennywiseai.ynab.core.model.MappingRule
 import com.pennywiseai.ynab.data.local.MessageStatus
 import com.pennywiseai.ynab.data.local.dao.MappingRuleDao
 import com.pennywiseai.ynab.data.local.dao.ProcessedMessageDao
@@ -36,11 +37,26 @@ open class TransactionPipeline @Inject constructor(
 ) {
 
     /**
+     * The routing table as domain rules. Bulk callers snapshot this ONCE per run and pass
+     * it to classify() so an N-message batch reads the table once, not N times.
+     */
+    suspend fun currentRules(): List<MappingRule> = mappingRuleDao.getAll().map { it.toDomain() }
+
+    /**
      * The shared decision, up to (but not including) the POST. Records NOTHING — the
      * caller records skip/pause rows and POSTs Postables. The only state it mutates is
      * the existing no-token pause latch (so a bad/absent token can't trigger a 401 storm).
+     *
+     * [rules] is an optional preloaded snapshot: null (the real-time path) reads fresh
+     * rules from the DAO; backfill passes one snapshot for the whole batch, so a mid-run
+     * rule edit is deliberately not picked up by later messages of that run.
      */
-    suspend fun classify(body: String, sender: String, timestamp: Long): Classification {
+    suspend fun classify(
+        body: String,
+        sender: String,
+        timestamp: Long,
+        rules: List<MappingRule>? = null,
+    ): Classification {
         // 1. Parse. No parser match -> no import_id exists; drop silently.
         val parsed = smsParser.parse(body, sender, timestamp) ?: return Classification.Dropped
         val importId = mapper.importIdFor(parsed)
@@ -52,8 +68,7 @@ open class TransactionPipeline @Inject constructor(
 
         // 3. Resolve the route (exact last4 beats bank wildcard). Missing OR broken -> fail
         //    fast as SKIPPED_UNROUTED; a broken route never hits the network.
-        val rules = mappingRuleDao.getAll().map { it.toDomain() }
-        val rule = resolver.resolve(rules, parsed.bankName, parsed.accountLast4)
+        val rule = resolver.resolve(rules ?: currentRules(), parsed.bankName, parsed.accountLast4)
         if (rule == null || rule.broken) {
             return Classification.Skipped(MessageStatus.SKIPPED_UNROUTED, parsed, importId)
         }

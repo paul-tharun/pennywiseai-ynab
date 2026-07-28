@@ -12,7 +12,7 @@
     <application
         android:name=".PennyWiseYnabApp"
         android:allowBackup="false"
-        android:label="PennyWise → YNAB"
+        android:label="pennywise-ynab"
         android:supportsRtl="true"
         android:theme="@style/Theme.PennyWiseYnab">
         <activity

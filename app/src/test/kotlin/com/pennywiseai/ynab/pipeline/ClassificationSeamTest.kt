@@ -4,6 +4,7 @@ import com.pennywiseai.parser.core.ParsedTransaction
 import com.pennywiseai.parser.core.TransactionType
 import com.pennywiseai.ynab.core.MappingResolver
 import com.pennywiseai.ynab.core.TransactionMapper
+import com.pennywiseai.ynab.core.model.MappingRule
 import com.pennywiseai.ynab.data.local.MessageStatus
 import com.pennywiseai.ynab.data.local.entity.MappingRuleEntity
 import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
@@ -118,5 +119,26 @@ class ClassificationSeamTest {
         assertEquals("b1", c.rule.budgetId)
         assertEquals("a1", c.transaction.accountId)
         assertEquals(mapper.importIdFor(nextParsed!!), c.importId)
+    }
+
+    @Test
+    fun `a preloaded rules snapshot routes without reading the rules table`() = runTest {
+        // The snapshot, not the DAO, decides the route: the seeded DAO rule can't route
+        // this message, yet it classifies Postable against the passed-in snapshot.
+        nextParsed = parsed(bank = "ICICI Bank", last4 = "5678")
+        val snapshot = listOf(
+            MappingRule(bankName = "ICICI Bank", last4 = "5678", budgetId = "bSnap", accountId = "aSnap", currencyCode = "INR"),
+        )
+        val c = pipeline().classify("b", "s", 1L, rules = snapshot) as Classification.Postable
+        assertEquals("bSnap", c.rule.budgetId)
+        assertEquals(0, ruleDao.getAllCalls)
+    }
+
+    @Test
+    fun `a null rules argument reads fresh rules from the DAO`() = runTest {
+        nextParsed = parsed()
+        pipeline().classify("b", "s", 1L)
+        pipeline().classify("b", "s", 2L)
+        assertEquals(2, ruleDao.getAllCalls) // real-time path stays fresh-read per message
     }
 }

@@ -263,6 +263,20 @@ class TransactionPipelineTest {
     }
 
     @Test
+    fun `the real-time path re-reads the rules table for every message`() = runTest {
+        // Only backfill classifies against a snapshot; process() must see a rule added
+        // between two messages straight away.
+        nextParsed = parsed(bank = "ICICI Bank", last4 = "9999")
+        val pipeline = pipeline()
+        assertEquals(PipelineResult.Skipped(MessageStatus.SKIPPED_UNROUTED), pipeline.process("b", "s", 1L))
+        ruleDao.insert(
+            MappingRuleEntity(bankName = "ICICI Bank", last4 = "9999", budgetId = "b2", accountId = "a2", currencyCode = "INR"),
+        )
+        assertEquals(PipelineResult.Posted, pipeline.process("b", "s", 2L))
+        assertEquals("b2", poster.lastBudgetId)
+    }
+
+    @Test
     fun `logged importId is the PW-prefixed content id`() = runTest {
         val p = parsed()
         nextParsed = p

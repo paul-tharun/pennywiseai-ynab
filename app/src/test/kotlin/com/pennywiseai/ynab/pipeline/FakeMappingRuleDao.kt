@@ -9,6 +9,10 @@ import kotlinx.coroutines.flow.flowOf
 class FakeMappingRuleDao(private val rules: MutableList<MappingRuleEntity> = mutableListOf()) : MappingRuleDao {
     private var nextId = 1L
 
+    /** Counts full-table reads so tests can assert backfill snapshots the rules once per run. */
+    var getAllCalls = 0
+        private set
+
     override suspend fun insert(rule: MappingRuleEntity): Long {
         val id = nextId++
         rules += rule.copy(id = id)
@@ -23,7 +27,10 @@ class FakeMappingRuleDao(private val rules: MutableList<MappingRuleEntity> = mut
         rules.removeAll { it.id == rule.id }
     }
 
-    override suspend fun getAll(): List<MappingRuleEntity> = rules.toList()
+    override suspend fun getAll(): List<MappingRuleEntity> {
+        getAllCalls++
+        return rules.toList()
+    }
 
     override fun observeAll(): Flow<List<MappingRuleEntity>> =
         flowOf(rules.sortedWith(compareBy({ it.bankName }, { it.last4 })))
