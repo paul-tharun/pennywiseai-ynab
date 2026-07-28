@@ -35,6 +35,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // .debug suffix lets a nightly/CI debug build coexist on-device with an
+            // installed release build (distinct applicationId, distinct signature).
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = false
             if (signingKeystorePath != null) {
