@@ -144,6 +144,26 @@ class TransactionPipelineTest {
     }
 
     @Test
+    fun `a prior non-POSTED row does not block a retry`() = runTest {
+        // Dedup only short-circuits on POSTED; a FAILED (or SKIPPED_*) row for this
+        // importId must still be retried through to the poster.
+        val p = parsed()
+        nextParsed = p
+        logDao.upsert(
+            ProcessedMessageEntity(
+                importId = mapper.importIdFor(p), sender = p.sender, bankName = p.bankName, last4 = p.accountLast4,
+                amount = p.amount, currency = p.currency, status = MessageStatus.FAILED,
+                error = "HTTP 429 - rate limited", timestamp = p.timestamp,
+            ),
+        )
+        poster.outcome = PostOutcome.Posted
+        val result = pipeline().process("b", "s", 1L)
+        assertEquals(PipelineResult.Posted, result)
+        assertEquals(1, poster.calls)
+        assertEquals(MessageStatus.POSTED, onlyRow().status)
+    }
+
+    @Test
     fun `no token pauses posting and records FAILED without hitting the network`() = runTest {
         tokenStore.clear()
         nextParsed = parsed()
@@ -185,6 +205,25 @@ class TransactionPipelineTest {
         assertEquals(TransactionPipeline.ERROR_ROUTE_BROKEN, onlyRow().error)
         assertTrue(ruleDao.getAll().single().broken) // persisted -> next message fails fast
         assertFalse(postingState.isPaused()) // 404 does NOT pause posting
+    }
+
+    @Test
+    fun `a 404 on a bank wildcard rule marks the wildcard route broken`() = runTest {
+        // The only matching rule is the bank wildcard (domain last4 == null, stored
+        // as "") -> setBroken must fall back to WILDCARD_LAST4, not the message's last4.
+        val wildcardDao = FakeMappingRuleDao(
+            mutableListOf(
+                MappingRuleEntity(id = 1, bankName = "HDFC Bank", last4 = "", budgetId = "bWild", accountId = "aWild", currencyCode = "INR"),
+            ),
+        )
+        val pipeline = TransactionPipeline(
+            smsParser = SmsParser { _, _, _ -> parsed(last4 = "5555") }, mapper = mapper, resolver = resolver, poster = poster,
+            mappingRuleDao = wildcardDao, processedMessageDao = logDao, tokenStore = tokenStore, postingState = postingState,
+        )
+        poster.outcome = PostOutcome.RouteBroken
+        val result = pipeline.process("b", "s", 1L)
+        assertEquals(PipelineResult.Failed(retryable = false), result)
+        assertTrue(wildcardDao.getAll().single().broken)
     }
 
     @Test
