@@ -4,14 +4,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,11 +30,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pennywiseai.ynab.data.local.entity.AccountEntity
+import com.pennywiseai.ynab.data.local.entity.BudgetEntity
 import com.pennywiseai.ynab.ui.nav.Screen
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RuleEditorScreen(
     args: Screen.RuleEditor,
@@ -41,57 +53,78 @@ fun RuleEditorScreen(
     var budgetId by remember { mutableStateOf("") }
     var accountId by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    var offerImportFor by remember { mutableStateOf<String?>(null) } // bank name, set after save from a suggestion
+    var offerImportFor by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { viewModel.loadBudgets() }
 
     val selectedBudget = budgets.firstOrNull { it.id == budgetId }
+    val selectedAccount = accounts.firstOrNull { it.id == accountId }
     val currency = selectedBudget?.currencyCode ?: ""
+    val valid = bank.isNotBlank() && budgetId.isNotBlank() && accountId.isNotBlank()
 
-    LazyColumn(Modifier.fillMaxWidth().padding(16.dp)) {
-        item {
-            Text("New route", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(bank, { bank = it }, label = { Text("Bank name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(last4, { last4 = it }, label = { Text("Last 4 (blank = any card)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        }
-        item { Text("Budget", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp)) }
-        items(budgets.size) { i ->
-            val b = budgets[i]
-            FilterChip(
-                selected = budgetId == b.id,
-                onClick = { budgetId = b.id; accountId = ""; viewModel.loadAccounts(b.id) },
-                label = { Text("${b.name} (${b.currencyCode})") },
-            )
-        }
-        if (budgetId.isNotBlank()) {
-            item { Text("Account", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp)) }
-            items(accounts.size) { i ->
-                val a = accounts[i]
-                FilterChip(selected = accountId == a.id, onClick = { accountId = a.id }, label = { Text(a.name) })
-            }
-        }
-        item {
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                TextButton(onClick = onDone) { Text("Cancel") }
-                Button(onClick = {
-                    scope.launch {
-                        val result = viewModel.saveRule(
-                            RuleDraft(bank, last4, budgetId, accountId, currency, args.editRuleId),
-                        )
-                        when (result) {
-                            SaveRuleResult.Saved ->
-                                if (args.prefillBank != null) offerImportFor = bank else onDone()
-                            SaveRuleResult.DuplicateRoute -> error = "A route for this bank + last4 already exists"
-                            is SaveRuleResult.Invalid -> error = result.message
-                        }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(if (args.editRuleId == null) "New route" else "Edit route") },
+                navigationIcon = {
+                    IconButton(onClick = onDone) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }) { Text("Save") }
+                },
+                actions = {
+                    TextButton(
+                        enabled = valid,
+                        onClick = {
+                            scope.launch {
+                                when (val result = viewModel.saveRule(
+                                    RuleDraft(bank, last4, budgetId, accountId, currency, args.editRuleId),
+                                )) {
+                                    SaveRuleResult.Saved ->
+                                        if (args.prefillBank != null) offerImportFor = bank else onDone()
+                                    SaveRuleResult.DuplicateRoute ->
+                                        error = "A route for this bank + last4 already exists"
+                                    is SaveRuleResult.Invalid -> error = result.message
+                                }
+                            }
+                        },
+                    ) { Text("Save") }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            Modifier.fillMaxWidth().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
+        ) {
+            Text("CARD", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            OutlinedTextField(bank, { bank = it }, label = { Text("Bank name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(last4, { last4 = it }, label = { Text("Last 4") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Text("Blank = match any card from this bank.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Text("SEND TO", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 16.dp))
+            BudgetDropdown(
+                budgets = budgets,
+                selected = selectedBudget,
+                onSelect = { b -> budgetId = b.id; accountId = ""; viewModel.loadAccounts(b.id) },
+            )
+            AccountDropdown(
+                accounts = accounts,
+                selected = selectedAccount,
+                enabled = budgetId.isNotBlank(),
+                onSelect = { a -> accountId = a.id },
+            )
+
+            routePreview(bank, last4, selectedBudget?.name, selectedAccount?.name, currency.ifBlank { null })?.let { line ->
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
             }
+
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
         }
     }
 
-    // After mapping a previously-unrouted bank, offer to import its past transactions.
     offerImportFor?.let { b ->
         AlertDialog(
             onDismissRequest = { offerImportFor = null; onDone() },
@@ -100,5 +133,60 @@ fun RuleEditorScreen(
             confirmButton = { TextButton(onClick = { viewModel.retroImport(b); offerImportFor = null; onDone() }) { Text("Import") } },
             dismissButton = { TextButton(onClick = { offerImportFor = null; onDone() }) { Text("Not now") } },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BudgetDropdown(
+    budgets: List<BudgetEntity>,
+    selected: BudgetEntity?,
+    onSelect: (BudgetEntity) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected?.let { "${it.name} (${it.currencyCode})" } ?: "",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Budget") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            budgets.forEach { b ->
+                DropdownMenuItem(
+                    text = { Text("${b.name} (${b.currencyCode})") },
+                    onClick = { onSelect(b); expanded = false },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AccountDropdown(
+    accounts: List<AccountEntity>,
+    selected: AccountEntity?,
+    enabled: Boolean,
+    onSelect: (AccountEntity) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded && enabled, onExpandedChange = { if (enabled) expanded = it }) {
+        OutlinedTextField(
+            value = selected?.name ?: "",
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text("Account") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            accounts.forEach { a ->
+                DropdownMenuItem(text = { Text(a.name) }, onClick = { onSelect(a); expanded = false })
+            }
+        }
     }
 }
