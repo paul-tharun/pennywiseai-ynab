@@ -46,4 +46,28 @@ class CaptureScheduler @Inject constructor(
         val uniqueName = "realtime-${sender}-${timestamp}-${body.hashCode()}"
         workManager.enqueueUniqueWork(uniqueName, ExistingWorkPolicy.KEEP, request)
     }
+
+    /** Enqueue a foreground backfill over [fromMillis, toMillis). Unique KEEP so a second
+     *  request while one runs is ignored (re-running a range is safe but pointless). */
+    fun enqueueBackfill(fromMillis: Long, toMillis: Long) {
+        val request = OneTimeWorkRequestBuilder<BackfillWorker>()
+            .setInputData(
+                workDataOf(
+                    BackfillWorker.KEY_FROM to fromMillis,
+                    BackfillWorker.KEY_TO to toMillis,
+                ),
+            )
+            .setConstraints(
+                Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build(),
+            )
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
+            .build()
+
+        workManager.enqueueUniqueWork(BackfillWorker.WORK_NAME, ExistingWorkPolicy.KEEP, request)
+    }
+
+    /** Cancel an in-flight backfill; the worker stops after the current chunk (isStopped). */
+    fun cancelBackfill() {
+        workManager.cancelUniqueWork(BackfillWorker.WORK_NAME)
+    }
 }
