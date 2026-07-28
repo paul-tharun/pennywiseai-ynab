@@ -7,3 +7,6 @@ build/
 
 # Local git worktrees for isolated development
 .worktrees/
+
+# Visual brainstorming companion
+.superpowers/brainstorm/
