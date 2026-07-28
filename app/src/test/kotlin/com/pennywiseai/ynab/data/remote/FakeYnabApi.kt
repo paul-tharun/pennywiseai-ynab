@@ -4,6 +4,7 @@ import com.pennywiseai.ynab.data.remote.dto.AccountsData
 import com.pennywiseai.ynab.data.remote.dto.AccountsResponse
 import com.pennywiseai.ynab.data.remote.dto.BudgetsData
 import com.pennywiseai.ynab.data.remote.dto.BudgetsResponse
+import com.pennywiseai.ynab.data.remote.dto.SaveTransactionsData
 import com.pennywiseai.ynab.data.remote.dto.SaveTransactionsRequest
 import com.pennywiseai.ynab.data.remote.dto.SaveTransactionsResponse
 import okhttp3.MediaType.Companion.toMediaType
@@ -23,6 +24,10 @@ class FakeYnabApi : YnabApi {
     var accountsByBudget: (String) -> Response<AccountsResponse> =
         { Response.success(AccountsResponse(AccountsData(emptyList()))) }
 
+    /** Configurable POST response. A test may return success/error, or throw IOException (offline). */
+    var postResponder: (String, SaveTransactionsRequest) -> Response<SaveTransactionsResponse> =
+        { _, _ -> Response.success(SaveTransactionsResponse(SaveTransactionsData())) }
+
     override suspend fun getBudgets(): Response<BudgetsResponse> = budgets()
 
     override suspend fun getAccounts(budgetId: String): Response<AccountsResponse> =
@@ -31,7 +36,7 @@ class FakeYnabApi : YnabApi {
     override suspend fun postTransactions(
         budgetId: String,
         body: SaveTransactionsRequest,
-    ): Response<SaveTransactionsResponse> = throw UnsupportedOperationException("not used in Plan 3")
+    ): Response<SaveTransactionsResponse> = postResponder(budgetId, body)
 
     companion object {
         /** Build a Retrofit-style error Response for a given HTTP code. */
