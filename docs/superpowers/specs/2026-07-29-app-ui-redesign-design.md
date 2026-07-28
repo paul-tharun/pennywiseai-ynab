@@ -60,7 +60,9 @@ Mockups are archived under `.superpowers/brainstorm/` (gitignored). Filenames no
 
 Replaces the flat History list.
 
-- **Header (replaces the "PennyWise" wordmark):** a small ₹ tile + **"Last transaction · 2 minutes ago"** with a secondary "Today at 9:12 AM". Tracks time since the most recent *processed* message (reflects spending activity, not a sync cycle — the app is event-driven, so there is no "sync"). A ⟳ button triggers an on-demand inbox re-scan.
+- **Header (replaces the "PennyWise" wordmark):** a small ₹ tile + **"Last transaction · 2 minutes ago"** with a secondary "Today at 9:12 AM". Tracks time since the most recent *processed* message (reflects spending activity, not a sync cycle — the app is event-driven, so there is no "sync"). A **⟳ re-scan** button covers messages the real-time `SmsReceiver` may have missed (dropped/delayed broadcast, doze, force-stop, late-granted permission).
+  - **Behavior:** enqueues a short backfill over the **last 24 hours** (`now − 24h … now`) via the existing `enqueueBackfill` machinery. Idempotent dedupe means already-processed messages are skipped, so it's safe to tap repeatedly.
+  - **New capability (beyond restyling):** a thin "re-scan recent" action wrapping `enqueueBackfill(now − 24h, now)`, plus a transient result state — "Checked · nothing new" or "Imported N". While it runs, the ⟳ shows a spinning/disabled state.
 - **Stat strip:** three tappable tiles — **Posted / Failed / Unrouted**. Numbers sized modestly. Tapping a tile filters the list below to that status; an active tile shows an outline, the list header switches to e.g. "Unrouted · 1" with a "Show all ✕" clear. (Failed/Unrouted tiles use error/warning container colors.)
 - **Recent list:** rows of `Bank ·last4` / time / amount / status pill. Filtered rows surface their inline fix action (e.g. "Map this card →" for unrouted).
 - App health lives in the tiles, not in the header.
@@ -115,6 +117,7 @@ Replaces the bare `DateRangePicker`.
 ## Open implementation notes
 
 - Semantic status colors must be derived to work against dynamic light/dark; mockup hexes are illustrative only.
+- The Home ⟳ re-scan is the one genuinely *new* capability here (a fixed last-24h backfill + result state); everything else restyles existing behavior.
 - Currency-mismatch shares the amber "warning" treatment in the list but is **not** its own stat tile (rare edge case); confirm this is acceptable or promote it during implementation.
 - Import determinacy depends on the worker's ability to report a total (fallback specified above).
 - Density: the compact route-editor/onboarding scale is the reference; Home/Settings should be nudged toward it during implementation for a consistent rhythm.
