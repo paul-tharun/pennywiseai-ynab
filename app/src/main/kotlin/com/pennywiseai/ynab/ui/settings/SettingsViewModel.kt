@@ -61,12 +61,15 @@ class SettingsViewModel @Inject constructor(
 
     /** Read snapshot counts for the connected-state row. Called when Settings opens and after refresh. */
     fun loadConnection() {
-        viewModelScope.launch {
-            val (budgets, accounts) = withContext(Dispatchers.IO) {
-                snapshotDao.countBudgets() to snapshotDao.countAccounts()
-            }
-            _connection.value = if (budgets > 0) ConnectionInfo(budgets, accounts) else null
+        viewModelScope.launch { reloadConnection() }
+    }
+
+    /** Shared by [loadConnection] and [refresh] so the connected row never shows stale counts. */
+    private suspend fun reloadConnection() {
+        val (budgets, accounts) = withContext(Dispatchers.IO) {
+            snapshotDao.countBudgets() to snapshotDao.countAccounts()
         }
+        _connection.value = if (budgets > 0) ConnectionInfo(budgets, accounts) else null
     }
 
     fun saveToken(token: String) {
@@ -88,7 +91,10 @@ class SettingsViewModel @Inject constructor(
         _tokenState.value = TokenUiState.Saving
         viewModelScope.launch {
             when (val result = withContext(Dispatchers.IO) { repository.refreshSnapshot() }) {
-                is SnapshotResult.Success -> _tokenState.value = TokenUiState.Saved(result.budgetCount, result.accountCount)
+                is SnapshotResult.Success -> {
+                    _tokenState.value = TokenUiState.Saved(result.budgetCount, result.accountCount)
+                    reloadConnection() // keep the "Connected · N budgets · M accounts" row current
+                }
                 SnapshotResult.Unauthorized -> _tokenState.value = TokenUiState.Error("Token rejected by YNAB (401)")
                 is SnapshotResult.Error -> _tokenState.value = TokenUiState.Error(result.message)
             }
