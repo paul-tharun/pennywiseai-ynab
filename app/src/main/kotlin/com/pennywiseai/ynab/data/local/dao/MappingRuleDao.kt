@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.pennywiseai.ynab.data.local.entity.MappingRuleEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MappingRuleDao {
@@ -28,6 +29,9 @@ interface MappingRuleDao {
 
     @Query("SELECT * FROM mapping_rules ORDER BY bankName, last4")
     suspend fun getAll(): List<MappingRuleEntity>
+
+    @Query("SELECT * FROM mapping_rules ORDER BY bankName, last4")
+    fun observeAll(): Flow<List<MappingRuleEntity>>
 
     /**
      * Flip the broken flag for one route (the unique (bankName, last4) row). Used

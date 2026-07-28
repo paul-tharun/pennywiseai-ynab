@@ -2,6 +2,8 @@ package com.pennywiseai.ynab.pipeline
 
 import com.pennywiseai.ynab.data.local.dao.MappingRuleDao
 import com.pennywiseai.ynab.data.local.entity.MappingRuleEntity
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /** In-memory MappingRuleDao. Seed rules via the constructor; getAll + setBroken are exercised. */
 class FakeMappingRuleDao(private val rules: MutableList<MappingRuleEntity> = mutableListOf()) : MappingRuleDao {
@@ -22,6 +24,9 @@ class FakeMappingRuleDao(private val rules: MutableList<MappingRuleEntity> = mut
     }
 
     override suspend fun getAll(): List<MappingRuleEntity> = rules.toList()
+
+    override fun observeAll(): Flow<List<MappingRuleEntity>> =
+        flowOf(rules.sortedWith(compareBy({ it.bankName }, { it.last4 })))
 
     override suspend fun setBroken(bankName: String, last4: String, broken: Boolean) {
         rules.replaceAll {
