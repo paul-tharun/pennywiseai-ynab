@@ -74,11 +74,29 @@ class CaptureScheduler @Inject constructor(
         workManager.cancelUniqueWork(BackfillWorker.WORK_NAME)
     }
 
-    /** True while the unique backfill work is enqueued or running (drives the Cancel button). */
-    fun backfillStatus(): Flow<Boolean> =
-        workManager.getWorkInfosForUniqueWorkFlow(BackfillWorker.WORK_NAME)
-            .map { infos -> infos.any { it.state != WorkInfo.State.SUCCEEDED &&
-                it.state != WorkInfo.State.FAILED && it.state != WorkInfo.State.CANCELLED } }
+    /**
+     * Maps the unique backfill work to a [BackfillRun] for in-app UI. ENQUEUED/RUNNING/BLOCKED
+     * -> Running(done,total) read from live progress data (0/0 until the worker reports).
+     * SUCCEEDED -> Done(tally) from the worker's output data. FAILED/CANCELLED and "no work"
+     * -> Idle. First (most recent) info wins; unique work usually has exactly one.
+     */
+    fun backfillRun(): Flow<BackfillRun> =
+        workManager.getWorkInfosForUniqueWorkFlow(BackfillWorker.WORK_NAME).map { infos ->
+            val info = infos.firstOrNull() ?: return@map BackfillRun.Idle
+            when (info.state) {
+                WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED ->
+                    BackfillRun.Running(
+                        done = info.progress.getInt(BackfillWorker.KEY_PROGRESS_DONE, 0),
+                        total = info.progress.getInt(BackfillWorker.KEY_PROGRESS_TOTAL, 0),
+                    )
+                WorkInfo.State.SUCCEEDED -> BackfillRun.Done(
+                    posted = info.outputData.getInt(BackfillWorker.KEY_RESULT_POSTED, 0),
+                    skipped = info.outputData.getInt(BackfillWorker.KEY_RESULT_SKIPPED, 0),
+                    failed = info.outputData.getInt(BackfillWorker.KEY_RESULT_FAILED, 0),
+                )
+                WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> BackfillRun.Idle
+            }
+        }
 
     /**
      * Re-drive one FAILED message by re-reading its 1 ms inbox window and re-running the

@@ -1,6 +1,8 @@
 package com.pennywiseai.ynab.ui.rules
 
 import com.pennywiseai.ynab.capture.CaptureScheduler
+import com.pennywiseai.ynab.ui.backfill.BackfillCanceller
+import com.pennywiseai.ynab.ui.backfill.BackfillObserver
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -20,4 +22,14 @@ object UiModule {
     @Singleton
     fun provideMessageRetrier(scheduler: CaptureScheduler): com.pennywiseai.ynab.ui.history.MessageRetrier =
         com.pennywiseai.ynab.ui.history.MessageRetrier { ts -> scheduler.retryMessage(ts) }
+
+    @Provides
+    @Singleton
+    fun provideBackfillObserver(scheduler: CaptureScheduler): BackfillObserver =
+        BackfillObserver { scheduler.backfillRun() }
+
+    @Provides
+    @Singleton
+    fun provideBackfillCanceller(scheduler: CaptureScheduler): BackfillCanceller =
+        BackfillCanceller { scheduler.cancelBackfill() }
 }
