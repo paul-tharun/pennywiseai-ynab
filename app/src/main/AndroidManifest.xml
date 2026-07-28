@@ -3,7 +3,7 @@
 
     <application
         android:name=".PennyWiseYnabApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:label="PennyWise → YNAB"
         android:supportsRtl="true"
         android:theme="@style/Theme.PennyWiseYnab">
