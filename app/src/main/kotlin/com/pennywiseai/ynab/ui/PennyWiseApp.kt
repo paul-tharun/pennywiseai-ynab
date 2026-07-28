@@ -11,7 +11,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,7 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pennywiseai.ynab.ui.backfill.BackfillScreen
 import com.pennywiseai.ynab.ui.common.PausedBanner
-import com.pennywiseai.ynab.ui.history.HistoryScreen
+import com.pennywiseai.ynab.ui.home.HomeScreen
 import com.pennywiseai.ynab.ui.nav.Screen
 import com.pennywiseai.ynab.ui.onboarding.OnboardingScreen
 import com.pennywiseai.ynab.ui.rules.RuleEditorScreen
@@ -53,7 +53,7 @@ fun PennyWiseApp(
 
 @Composable
 private fun MainShell(onTokenCleared: () -> Unit) {
-    var tab by remember { mutableStateOf<Screen.Tab>(Screen.History) }
+    var tab by remember { mutableStateOf<Screen.Tab>(Screen.Home) }
     var pushed by remember { mutableStateOf<Screen?>(null) }
 
     BackHandler(enabled = pushed != null) { pushed = null }
@@ -63,10 +63,10 @@ private fun MainShell(onTokenCleared: () -> Unit) {
             if (pushed == null) {
                 NavigationBar {
                     NavigationBarItem(
-                        selected = tab == Screen.History,
-                        onClick = { tab = Screen.History },
-                        icon = { Icon(Icons.Filled.List, contentDescription = null) },
-                        label = { Text("History") },
+                        selected = tab == Screen.Home,
+                        onClick = { tab = Screen.Home },
+                        icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                        label = { Text("Home") },
                     )
                     NavigationBarItem(
                         selected = tab == Screen.Backfill,
@@ -92,7 +92,7 @@ private fun MainShell(onTokenCleared: () -> Unit) {
                     onDone = { pushed = null },
                 )
                 else -> when (tab) {
-                    Screen.History -> HistoryScreen(
+                    Screen.Home -> HomeScreen(
                         onMapRoute = { bank, last4 ->
                             pushed = Screen.RuleEditor(prefillBank = bank, prefillLast4 = last4)
                         },

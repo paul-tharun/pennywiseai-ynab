@@ -7,7 +7,7 @@ package com.pennywiseai.ynab.ui.nav
  */
 sealed interface Screen {
     sealed interface Tab : Screen
-    data object History : Tab
+    data object Home : Tab
     data object Backfill : Tab
     data object Settings : Tab
 
