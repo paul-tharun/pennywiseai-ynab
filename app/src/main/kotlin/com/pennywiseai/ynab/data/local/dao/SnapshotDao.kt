@@ -11,9 +11,16 @@ import com.pennywiseai.ynab.data.local.entity.BudgetEntity
 @Dao
 interface SnapshotDao {
 
+    /**
+     * Internal to replaceSnapshot — NOT a general-purpose upsert. REPLACE does
+     * DELETE-then-INSERT, and DELETE cascades a budget's accounts away (FK
+     * ON DELETE CASCADE). Safe only because replaceSnapshot clears first, so these
+     * hit empty tables. Callers (YnabRepository) MUST write via replaceSnapshot.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBudgets(budgets: List<BudgetEntity>)
 
+    /** Internal to replaceSnapshot — see insertBudgets. Do not call directly. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAccounts(accounts: List<AccountEntity>)
 
