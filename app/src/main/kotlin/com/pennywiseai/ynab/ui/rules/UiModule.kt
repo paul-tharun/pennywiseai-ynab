@@ -15,4 +15,9 @@ object UiModule {
     @Singleton
     fun provideBackfillEnqueuer(scheduler: CaptureScheduler): BackfillEnqueuer =
         BackfillEnqueuer { from, to -> scheduler.enqueueBackfill(from, to) }
+
+    @Provides
+    @Singleton
+    fun provideMessageRetrier(scheduler: CaptureScheduler): com.pennywiseai.ynab.ui.history.MessageRetrier =
+        com.pennywiseai.ynab.ui.history.MessageRetrier { ts -> scheduler.retryMessage(ts) }
 }
