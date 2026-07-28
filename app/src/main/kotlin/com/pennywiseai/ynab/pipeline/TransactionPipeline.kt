@@ -16,12 +16,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * The single shared parse -> post path for both capture modes (design spec).
- * Processes ONE message: parse, skip non-transactions, resolve the route, fail fast
- * on a broken route, guard currency, map, dedup locally, then POST (unless paused /
- * no token) and record the outcome. Writes exactly one ProcessedMessageEntity per
- * handled message (keyed by import_id, upserted); an un-parseable message is dropped
- * and never logged.
+ * The single shared parse -> post path for both capture modes (design spec, ADR-0003).
+ * classify() is the reusable decision (parse, skip, route, currency-guard, local dedup,
+ * pause) that both process() (real-time single POST) and BackfillProcessor (bulk POST)
+ * run. process() handles ONE message end-to-end: classify, record the terminal outcome,
+ * and for a Postable, POST a one-element array and record. An un-parseable message is
+ * dropped and never logged.
  */
 @Singleton
 class TransactionPipeline @Inject constructor(
@@ -35,35 +35,37 @@ class TransactionPipeline @Inject constructor(
     private val postingState: PostingStateStore,
 ) {
 
-    suspend fun process(body: String, sender: String, timestamp: Long): PipelineResult {
-        // 1. Parse. No parser match -> no import_id exists; drop silently, do not log.
-        val parsed = smsParser.parse(body, sender, timestamp) ?: return PipelineResult.Dropped
+    /**
+     * The shared decision, up to (but not including) the POST. Records NOTHING — the
+     * caller records skip/pause rows and POSTs Postables. The only state it mutates is
+     * the existing no-token pause latch (so a bad/absent token can't trigger a 401 storm).
+     */
+    suspend fun classify(body: String, sender: String, timestamp: Long): Classification {
+        // 1. Parse. No parser match -> no import_id exists; drop silently.
+        val parsed = smsParser.parse(body, sender, timestamp) ?: return Classification.Dropped
         val importId = mapper.importIdFor(parsed)
 
         // 2. Non-postable type (TRANSFER / BALANCE_UPDATE) -> skip before the mapper (ADR-0002).
         if (!parsed.type.isPostable()) {
-            record(parsed, importId, MessageStatus.SKIPPED_NON_TRANSACTION)
-            return PipelineResult.Skipped(MessageStatus.SKIPPED_NON_TRANSACTION)
+            return Classification.Skipped(MessageStatus.SKIPPED_NON_TRANSACTION, parsed, importId)
         }
 
-        // 3. Resolve the route (exact last4 beats bank wildcard). A missing OR broken
-        //    route fails fast as SKIPPED_UNROUTED — a broken route never hits the network.
+        // 3. Resolve the route (exact last4 beats bank wildcard). Missing OR broken -> fail
+        //    fast as SKIPPED_UNROUTED; a broken route never hits the network.
         val rules = mappingRuleDao.getAll().map { it.toDomain() }
         val rule = resolver.resolve(rules, parsed.bankName, parsed.accountLast4)
         if (rule == null || rule.broken) {
-            record(parsed, importId, MessageStatus.SKIPPED_UNROUTED)
-            return PipelineResult.Skipped(MessageStatus.SKIPPED_UNROUTED)
+            return Classification.Skipped(MessageStatus.SKIPPED_UNROUTED, parsed, importId)
         }
 
         // 4. Currency guard -> never POST a wrong-currency amount (no FX).
         if (!parsed.currency.equals(rule.currencyCode, ignoreCase = true)) {
-            record(parsed, importId, MessageStatus.SKIPPED_CURRENCY_MISMATCH)
-            return PipelineResult.Skipped(MessageStatus.SKIPPED_CURRENCY_MISMATCH)
+            return Classification.Skipped(MessageStatus.SKIPPED_CURRENCY_MISMATCH, parsed, importId)
         }
 
         // 5. Local dedup (best-effort optimization only; YNAB import_id is the authority).
         if (processedMessageDao.getByImportId(importId)?.status == MessageStatus.POSTED) {
-            return PipelineResult.Posted
+            return Classification.AlreadyPosted(parsed, importId)
         }
 
         // 6. Build the YNAB transaction.
@@ -74,33 +76,49 @@ class TransactionPipeline @Inject constructor(
         if (postingState.isPaused() || token.isNullOrBlank()) {
             if (token.isNullOrBlank()) postingState.setPaused(true)
             val error = if (token.isNullOrBlank()) ERROR_NO_TOKEN else ERROR_TOKEN_INVALID
-            record(parsed, importId, MessageStatus.FAILED, error)
-            return PipelineResult.Failed(retryable = false)
+            return Classification.Paused(parsed, importId, error)
         }
 
-        // 8. POST and classify.
-        return when (val outcome = poster.post(rule.budgetId, listOf(transaction))) {
+        return Classification.Postable(parsed, importId, rule, transaction)
+    }
+
+    /** Process ONE message end-to-end (real-time path): classify, record, POST if Postable. */
+    suspend fun process(body: String, sender: String, timestamp: Long): PipelineResult =
+        when (val c = classify(body, sender, timestamp)) {
+            is Classification.Dropped -> PipelineResult.Dropped
+            is Classification.Skipped -> {
+                record(c.parsed, c.importId, c.status)
+                PipelineResult.Skipped(c.status)
+            }
+            is Classification.AlreadyPosted -> PipelineResult.Posted
+            is Classification.Paused -> {
+                record(c.parsed, c.importId, MessageStatus.FAILED, c.error)
+                PipelineResult.Failed(retryable = false)
+            }
+            is Classification.Postable -> postSingle(c)
+        }
+
+    private suspend fun postSingle(c: Classification.Postable): PipelineResult =
+        when (val outcome = poster.post(c.rule.budgetId, listOf(c.transaction))) {
             is PostOutcome.Posted -> {
-                record(parsed, importId, MessageStatus.POSTED)
+                record(c.parsed, c.importId, MessageStatus.POSTED)
                 PipelineResult.Posted
             }
             is PostOutcome.Unauthorized -> {
                 postingState.setPaused(true)
-                record(parsed, importId, MessageStatus.FAILED, ERROR_TOKEN_INVALID)
+                record(c.parsed, c.importId, MessageStatus.FAILED, ERROR_TOKEN_INVALID)
                 PipelineResult.Failed(retryable = false)
             }
             is PostOutcome.RouteBroken -> {
-                // Fail fast for the next message too: mark the route broken durably.
-                mappingRuleDao.setBroken(rule.bankName, rule.last4 ?: WILDCARD_LAST4, true)
-                record(parsed, importId, MessageStatus.FAILED, ERROR_ROUTE_BROKEN)
+                mappingRuleDao.setBroken(c.rule.bankName, c.rule.last4 ?: WILDCARD_LAST4, true)
+                record(c.parsed, c.importId, MessageStatus.FAILED, ERROR_ROUTE_BROKEN)
                 PipelineResult.Failed(retryable = false)
             }
             is PostOutcome.Failed -> {
-                record(parsed, importId, MessageStatus.FAILED, outcome.error)
+                record(c.parsed, c.importId, MessageStatus.FAILED, outcome.error)
                 PipelineResult.Failed(outcome.retryable)
             }
         }
-    }
 
     private suspend fun record(
         parsed: ParsedTransaction,
