@@ -86,4 +86,18 @@ class SnapshotDaoTest {
         assertEquals(emptyList<String>(), dao.getOpenAccounts("bud-usd").map { it.id }) // old accounts cascaded out
         assertEquals(listOf("new"), dao.getOpenAccounts("bud-inr").map { it.id })
     }
+
+    @Test
+    fun `countBudgets and countAccounts reflect the snapshot`() = runTest {
+        dao.replaceSnapshot(
+            budgets = listOf(usd, inr),
+            accounts = listOf(
+                acct("a1", "bud-usd"),
+                acct("a2", "bud-inr"),
+                acct("a3", "bud-inr"),
+            ),
+        )
+        assertEquals(2, dao.countBudgets())
+        assertEquals(3, dao.countAccounts())
+    }
 }

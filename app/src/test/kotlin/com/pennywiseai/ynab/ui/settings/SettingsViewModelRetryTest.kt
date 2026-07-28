@@ -72,6 +72,7 @@ class SettingsViewModelRetryTest {
             mappingRuleDao = db.mappingRuleDao(),
             processedMessageDao = db.processedMessageDao(),
             enqueuer = enqueuer,
+            snapshotDao = db.snapshotDao(),
         )
     }
 

@@ -47,4 +47,12 @@ interface SnapshotDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM accounts WHERE id = :accountId AND budgetId = :budgetId)")
     suspend fun accountExists(budgetId: String, accountId: String): Boolean
+
+    /** Total budgets in the current snapshot — the Settings "Connected · N budgets" row. */
+    @Query("SELECT COUNT(*) FROM budgets")
+    suspend fun countBudgets(): Int
+
+    /** Total accounts across all budgets in the snapshot — the "· M accounts" part. */
+    @Query("SELECT COUNT(*) FROM accounts")
+    suspend fun countAccounts(): Int
 }
