@@ -11,6 +11,7 @@ import com.pennywiseai.ynab.data.local.dao.ProcessedMessageDao
 import com.pennywiseai.ynab.data.local.dao.SnapshotDao
 import com.pennywiseai.ynab.data.local.entity.AccountEntity
 import com.pennywiseai.ynab.data.local.entity.BudgetEntity
+import com.pennywiseai.ynab.data.mapper.WILDCARD_LAST4
 import com.pennywiseai.ynab.data.mapper.toDomain
 import com.pennywiseai.ynab.data.mapper.toEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -99,7 +100,7 @@ class RulesViewModel @Inject constructor(
     fun deleteRule(rule: MappingRule) = viewModelScope.launch {
         // getAll -> match by (bank, storage last4) to recover the row id for @Delete.
         val entity = mappingRuleDao.getAll().firstOrNull {
-            it.bankName == rule.bankName && it.last4 == (rule.last4 ?: "")
+            it.bankName == rule.bankName && it.last4 == (rule.last4 ?: WILDCARD_LAST4)
         } ?: return@launch
         mappingRuleDao.delete(entity)
     }

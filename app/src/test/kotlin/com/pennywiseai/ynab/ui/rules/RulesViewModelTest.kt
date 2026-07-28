@@ -106,6 +106,33 @@ class RulesViewModelTest {
     }
 
     @Test
+    fun `deleteRule removes a specific-last4 rule`() = runTest(dispatcher) {
+        val vm = vm()
+        vm.saveRule(draft(last4 = "1234"))
+        val rule = vm.rules.first { it.isNotEmpty() }.single()
+
+        vm.deleteRule(rule).join()
+        advanceUntilIdle()
+
+        assertTrue(db.mappingRuleDao().getAll().isEmpty())
+    }
+
+    @Test
+    fun `deleteRule removes a wildcard rule via the null to empty-string mapping`() = runTest(dispatcher) {
+        val vm = vm()
+        vm.saveRule(draft(last4 = null))
+        // Stored as WILDCARD_LAST4 (""); the domain rule read back has last4 == null.
+        val rule = vm.rules.first { it.isNotEmpty() }.single()
+        assertEquals(null, rule.last4)
+
+        // deleteRule must re-encode null -> WILDCARD_LAST4 to match the stored row.
+        vm.deleteRule(rule).join()
+        advanceUntilIdle()
+
+        assertTrue(db.mappingRuleDao().getAll().isEmpty())
+    }
+
+    @Test
     fun `retroImport uses the earliest unrouted timestamp for the bank`() = runTest(dispatcher) {
         val dao = db.processedMessageDao()
         // Earliest SKIPPED_UNROUTED for HDFC Bank is ts=777; a later HDFC row and a
