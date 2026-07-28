@@ -4,3 +4,6 @@ build/
 *.apk
 .idea/
 .DS_Store
+
+# Local git worktrees for isolated development
+.worktrees/
