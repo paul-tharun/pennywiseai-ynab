@@ -47,12 +47,12 @@ fun PennyWiseApp(
             onRequestPermissions = onRequestPermissions,
             onComplete = { gate.recheck() },
         )
-        true -> MainShell(onRequestPermissions = onRequestPermissions, onTokenCleared = { gate.recheck() })
+        true -> MainShell(onTokenCleared = { gate.recheck() })
     }
 }
 
 @Composable
-private fun MainShell(onRequestPermissions: () -> Unit, onTokenCleared: () -> Unit) {
+private fun MainShell(onTokenCleared: () -> Unit) {
     var tab by remember { mutableStateOf<Screen.Tab>(Screen.History) }
     var pushed by remember { mutableStateOf<Screen?>(null) }
 
@@ -100,7 +100,6 @@ private fun MainShell(onRequestPermissions: () -> Unit, onTokenCleared: () -> Un
                     Screen.Backfill -> BackfillScreen()
                     Screen.Settings -> SettingsScreen(
                         onAddRule = { pushed = Screen.RuleEditor() },
-                        onEditRule = { id -> pushed = Screen.RuleEditor(editRuleId = id) },
                         onMapSuggestion = { bank, last4 ->
                             pushed = Screen.RuleEditor(prefillBank = bank, prefillLast4 = last4)
                         },

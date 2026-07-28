@@ -16,13 +16,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
- * Rules + unrouted suggestions, embedded in the Settings hub (Task 7). Each rule row edits
- * (bank+last4 -> editor) and deletes; each suggestion offers a one-tap map that opens the
- * editor prefilled with the bank+last4. Signature is load-bearing: SettingsScreen calls it.
+ * Rules + unrouted suggestions, embedded in the Settings hub (Task 7). Each rule row deletes;
+ * each unrouted suggestion offers a one-tap map that opens the editor prefilled with the
+ * bank+last4. Signature is load-bearing: SettingsScreen calls it.
  */
 @Composable
 fun RulesList(
-    onEditRule: (Long) -> Unit,
     onMapSuggestion: (bank: String, last4: String?) -> Unit,
     viewModel: RulesViewModel = hiltViewModel(),
 ) {

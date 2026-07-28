@@ -30,7 +30,6 @@ import com.pennywiseai.ynab.ui.rules.RulesList
 @Composable
 fun SettingsScreen(
     onAddRule: () -> Unit,
-    onEditRule: (Long) -> Unit,
     onMapSuggestion: (bank: String, last4: String?) -> Unit,
     onTokenCleared: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -75,7 +74,7 @@ fun SettingsScreen(
 
         // Rules list + unrouted suggestions are rendered by RulesList (Task 8), which
         // reads its own RulesViewModel. It is embedded here so Settings is the one hub.
-        item { RulesList(onEditRule = onEditRule, onMapSuggestion = onMapSuggestion) }
+        item { RulesList(onMapSuggestion = onMapSuggestion) }
     }
 }
 
