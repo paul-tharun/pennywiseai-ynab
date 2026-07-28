@@ -3,6 +3,7 @@ package com.pennywiseai.ynab.data.repository
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.pennywiseai.ynab.data.local.PennyWiseDatabase
+import com.pennywiseai.ynab.data.local.entity.MappingRuleEntity
 import com.pennywiseai.ynab.data.remote.FakeYnabApi
 import com.pennywiseai.ynab.data.remote.dto.AccountDto
 import com.pennywiseai.ynab.data.remote.dto.AccountsData
@@ -43,7 +44,7 @@ class YnabRepositoryTest {
         ).allowMainThreadQueries().build()
         api = FakeYnabApi()
         tokenStore = FakeTokenStore()
-        repository = YnabRepository(api, db.snapshotDao(), tokenStore)
+        repository = YnabRepository(api, db.snapshotDao(), db.mappingRuleDao(), tokenStore)
     }
 
     @After
@@ -133,5 +134,60 @@ class YnabRepositoryTest {
 
         assertEquals(listOf("b2"), db.snapshotDao().getBudgets().map { it.id })
         assertEquals(emptyList<String>(), db.snapshotDao().getOpenAccounts("b1").map { it.id })
+    }
+
+    @Test
+    fun `a rule whose account vanished from the new snapshot is reported broken`() = runTest {
+        db.mappingRuleDao().insert(
+            MappingRuleEntity(bankName = "HDFC", last4 = "1234", budgetId = "b1", accountId = "gone", currencyCode = "USD"),
+        )
+        api.budgets = { budgetsOk(budget("b1", "USD")) }
+        api.accountsByBudget = { accountsOk(account("a1")) } // "gone" is not here
+
+        val result = repository.refreshSnapshot() as SnapshotResult.Success
+
+        assertEquals(1, result.brokenRules.size)
+        assertEquals("gone", result.brokenRules.single().accountId)
+    }
+
+    @Test
+    fun `a rule that still resolves is not broken`() = runTest {
+        db.mappingRuleDao().insert(
+            MappingRuleEntity(bankName = "HDFC", last4 = "1234", budgetId = "b1", accountId = "a1", currencyCode = "USD"),
+        )
+        api.budgets = { budgetsOk(budget("b1", "USD")) }
+        api.accountsByBudget = { accountsOk(account("a1")) }
+
+        val result = repository.refreshSnapshot() as SnapshotResult.Success
+
+        assertEquals(emptyList<Any>(), result.brokenRules)
+    }
+
+    @Test
+    fun `a resolving rule whose budget currency changed has its stored currency updated`() = runTest {
+        db.mappingRuleDao().insert(
+            MappingRuleEntity(bankName = "HDFC", last4 = "1234", budgetId = "b1", accountId = "a1", currencyCode = "USD"),
+        )
+        api.budgets = { budgetsOk(budget("b1", "INR")) } // budget currency now INR
+        api.accountsByBudget = { accountsOk(account("a1")) }
+
+        val result = repository.refreshSnapshot() as SnapshotResult.Success
+
+        assertEquals(emptyList<Any>(), result.brokenRules)
+        assertEquals("INR", db.mappingRuleDao().getAll().single().currencyCode)
+    }
+
+    @Test
+    fun `a broken rule's currency is left untouched`() = runTest {
+        db.mappingRuleDao().insert(
+            MappingRuleEntity(bankName = "HDFC", last4 = "1234", budgetId = "b1", accountId = "gone", currencyCode = "USD"),
+        )
+        api.budgets = { budgetsOk(budget("b1", "INR")) }
+        api.accountsByBudget = { accountsOk(account("a1")) }
+
+        repository.refreshSnapshot()
+
+        // Not updated: a broken rule needs remapping, not a silent currency change.
+        assertEquals("USD", db.mappingRuleDao().getAll().single().currencyCode)
     }
 }

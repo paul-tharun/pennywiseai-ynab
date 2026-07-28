@@ -1,7 +1,10 @@
 package com.pennywiseai.ynab.data.repository
 
+import com.pennywiseai.ynab.core.model.MappingRule
+import com.pennywiseai.ynab.data.local.dao.MappingRuleDao
 import com.pennywiseai.ynab.data.local.dao.SnapshotDao
 import com.pennywiseai.ynab.data.local.entity.AccountEntity
+import com.pennywiseai.ynab.data.mapper.toDomain
 import com.pennywiseai.ynab.data.remote.YnabApi
 import com.pennywiseai.ynab.data.remote.toEntity
 import com.pennywiseai.ynab.data.token.TokenStore
@@ -19,6 +22,7 @@ import javax.inject.Singleton
 class YnabRepository @Inject constructor(
     private val api: YnabApi,
     private val snapshotDao: SnapshotDao,
+    private val mappingRuleDao: MappingRuleDao,
     private val tokenStore: TokenStore,
 ) {
 
@@ -54,8 +58,29 @@ class YnabRepository @Inject constructor(
 
         snapshotDao.replaceSnapshot(budgets, accounts)
 
-        // brokenRules is filled in Task 5; snapshot persistence stands alone here.
-        return SnapshotResult.Success(budgets.size, accounts.size, brokenRules = emptyList())
+        val brokenRules = revalidateRules()
+        return SnapshotResult.Success(budgets.size, accounts.size, brokenRules)
+    }
+
+    /**
+     * Re-check every rule against the just-persisted snapshot. A rule whose target
+     * account no longer exists is broken (returned, not mutated — it needs
+     * remapping). A rule that still resolves but whose budget currency changed has
+     * its stored currency synced automatically (design spec, Settings).
+     */
+    private suspend fun revalidateRules(): List<MappingRule> {
+        val broken = mutableListOf<MappingRule>()
+        for (rule in mappingRuleDao.getAll()) {
+            if (!snapshotDao.accountExists(rule.budgetId, rule.accountId)) {
+                broken += rule.toDomain()
+            } else {
+                val currency = snapshotDao.getBudgetCurrency(rule.budgetId)
+                if (currency != null && currency != rule.currencyCode) {
+                    mappingRuleDao.update(rule.copy(currencyCode = currency))
+                }
+            }
+        }
+        return broken
     }
 
     /** Map a non-success HTTP status to a SnapshotResult, or null if successful. */
