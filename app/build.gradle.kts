@@ -18,9 +18,28 @@ android {
         versionName = "0.1.0"
     }
 
+    // Release signing is driven entirely by environment variables so CI can sign
+    // without any checked-in secrets. When SIGNING_KEYSTORE_PATH is unset (every
+    // local build by default), assembleRelease produces an unsigned APK.
+    val signingKeystorePath: String? = System.getenv("SIGNING_KEYSTORE_PATH")
+
+    signingConfigs {
+        if (signingKeystorePath != null) {
+            create("release") {
+                storeFile = file(signingKeystorePath)
+                storePassword = System.getenv("SIGNING_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (signingKeystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
