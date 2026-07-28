@@ -37,6 +37,7 @@ import com.pennywiseai.ynab.ui.settings.SettingsScreen
 @Composable
 fun PennyWiseApp(
     onRequestPermissions: () -> Unit,
+    permissionsGranted: Boolean,
     gate: AppGateViewModel = hiltViewModel(),
 ) {
     val hasToken by gate.hasToken.collectAsStateWithLifecycle()
@@ -46,6 +47,7 @@ fun PennyWiseApp(
         false -> OnboardingScreen(
             onRequestPermissions = onRequestPermissions,
             onComplete = { gate.recheck() },
+            permissionsGranted = permissionsGranted,
         )
         true -> MainShell(onTokenCleared = { gate.recheck() })
     }
