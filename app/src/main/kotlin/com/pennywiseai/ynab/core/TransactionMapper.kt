@@ -38,9 +38,19 @@ class TransactionMapper(private val zoneId: ZoneId = ZoneId.systemDefault()) {
             amount = amount,
             payeeName = parsed.merchant?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_PAYEE),
             memo = parsed.reference?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_MEMO),
-            importId = IMPORT_ID_PREFIX + parsed.generateTransactionId(),
+            importId = importIdFor(parsed),
         )
     }
+
+    /**
+     * The YNAB import_id for a parsed message: "PW:" + its content-deterministic id.
+     * Exposed so the pipeline can compute the log's primary key on the skip paths
+     * (non-transaction / unrouted / currency-mismatch) before it has a rule to map.
+     * map() uses this too, so the id a skipped row carries matches the id a later
+     * successful post would use (self-healing upsert, ADR-0005).
+     */
+    fun importIdFor(parsed: ParsedTransaction): String =
+        IMPORT_ID_PREFIX + parsed.generateTransactionId()
 
     companion object {
         const val IMPORT_ID_PREFIX = "PW:"
