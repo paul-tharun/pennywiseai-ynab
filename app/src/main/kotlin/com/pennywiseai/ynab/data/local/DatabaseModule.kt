@@ -19,7 +19,10 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): PennyWiseDatabase =
-        Room.databaseBuilder(context, PennyWiseDatabase::class.java, "pennywise.db").build()
+        Room.databaseBuilder(context, PennyWiseDatabase::class.java, "pennywise.db")
+            // Pre-release: recreate on any schema change rather than writing migrations.
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
 
     @Provides
     fun provideProcessedMessageDao(db: PennyWiseDatabase): ProcessedMessageDao =

@@ -99,4 +99,28 @@ class MappingRuleDaoTest {
         val resolved = MappingResolver().resolve(rules, "HDFC Bank", "1234")
         assertEquals("a-exact", resolved!!.accountId)
     }
+
+    @Test
+    fun `inserted rule defaults to not broken`() = runTest {
+        dao.insert(exact())
+        assertEquals(false, dao.getAll().single().broken)
+    }
+
+    @Test
+    fun `setBroken flips the flag for the matching route only`() = runTest {
+        dao.insert(exact(last4 = "1234"))
+        dao.insert(exact(last4 = "5678", accountId = "a-other"))
+        dao.setBroken("HDFC Bank", "1234", true)
+        val byLast4 = dao.getAll().associate { it.last4 to it.broken }
+        assertEquals(true, byLast4["1234"])
+        assertEquals(false, byLast4["5678"]) // untouched
+    }
+
+    @Test
+    fun `setBroken can clear the flag again`() = runTest {
+        dao.insert(exact(last4 = "1234"))
+        dao.setBroken("HDFC Bank", "1234", true)
+        dao.setBroken("HDFC Bank", "1234", false)
+        assertEquals(false, dao.getAll().single().broken)
+    }
 }

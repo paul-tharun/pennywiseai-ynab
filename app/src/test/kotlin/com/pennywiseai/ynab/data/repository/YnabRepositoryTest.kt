@@ -18,6 +18,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -189,5 +190,33 @@ class YnabRepositoryTest {
 
         // Not updated: a broken rule needs remapping, not a silent currency change.
         assertEquals("USD", db.mappingRuleDao().getAll().single().currencyCode)
+    }
+
+    @Test
+    fun `revalidation persists broken when the target account vanishes`() = runTest {
+        db.mappingRuleDao().insert(
+            MappingRuleEntity(bankName = "HDFC Bank", last4 = "1234", budgetId = "b1", accountId = "a-gone", currencyCode = "USD"),
+        )
+        api.budgets = { budgetsOk(budget("b1", "USD")) }
+        api.accountsByBudget = { accountsOk(account("a1")) } // snapshot has a1, NOT a-gone
+
+        val result = repository.saveTokenAndRefresh("pat")
+
+        assertTrue(result is SnapshotResult.Success)
+        assertEquals(1, (result as SnapshotResult.Success).brokenRules.size)
+        assertTrue(db.mappingRuleDao().getAll().single().broken) // durably persisted
+    }
+
+    @Test
+    fun `revalidation clears broken when the target account returns`() = runTest {
+        db.mappingRuleDao().insert(
+            MappingRuleEntity(bankName = "HDFC Bank", last4 = "1234", budgetId = "b1", accountId = "a1", currencyCode = "USD", broken = true),
+        )
+        api.budgets = { budgetsOk(budget("b1", "USD")) }
+        api.accountsByBudget = { accountsOk(account("a1")) } // a1 is back
+
+        repository.refreshSnapshot()
+
+        assertFalse(db.mappingRuleDao().getAll().single().broken) // self-healed
     }
 }

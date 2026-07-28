@@ -11,4 +11,7 @@ data class MappingRule(
     val budgetId: String,
     val accountId: String,
     val currencyCode: String,
+    /** True when the rule's target budget/account no longer resolves in the snapshot;
+     *  its messages log SKIPPED_UNROUTED (design spec, Settings) until remapped. */
+    val broken: Boolean = false,
 )

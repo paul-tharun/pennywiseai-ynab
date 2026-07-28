@@ -28,4 +28,12 @@ interface MappingRuleDao {
 
     @Query("SELECT * FROM mapping_rules ORDER BY bankName, last4")
     suspend fun getAll(): List<MappingRuleEntity>
+
+    /**
+     * Flip the broken flag for one route (the unique (bankName, last4) row). Used
+     * reactively by the pipeline on a post-time 404. `last4` is the storage form
+     * (WILDCARD_LAST4 == "" for a bank wildcard).
+     */
+    @Query("UPDATE mapping_rules SET broken = :broken WHERE bankName = :bankName AND last4 = :last4")
+    suspend fun setBroken(bankName: String, last4: String, broken: Boolean)
 }

@@ -23,7 +23,7 @@ import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
         BudgetEntity::class,
         AccountEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

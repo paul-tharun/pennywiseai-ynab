@@ -29,4 +29,16 @@ class MappingRuleMappingTest {
         )
         assertNull(entity.toDomain().last4)
     }
+
+    @Test
+    fun `broken flag survives the round trip`() {
+        val domain = MappingRule("HDFC Bank", "1234", "b1", "a1", "INR", broken = true)
+        assertEquals(domain, domain.toEntity().toDomain())
+        assertEquals(true, domain.toEntity().broken)
+    }
+
+    @Test
+    fun `broken defaults to false`() {
+        assertEquals(false, MappingRule("HDFC Bank", "1234", "b1", "a1", "INR").toEntity().broken)
+    }
 }

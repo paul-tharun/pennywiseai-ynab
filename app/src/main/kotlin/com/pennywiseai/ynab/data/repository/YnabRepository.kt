@@ -63,20 +63,28 @@ class YnabRepository @Inject constructor(
     }
 
     /**
-     * Re-check every rule against the just-persisted snapshot. A rule whose target
-     * account no longer exists is broken (returned, not mutated — it needs
-     * remapping). A rule that still resolves but whose budget currency changed has
-     * its stored currency synced automatically (design spec, Settings).
+     * Re-check every rule against the just-persisted snapshot and persist the result.
+     * A rule whose target account no longer exists is marked broken (durably, so the
+     * pipeline fails fast). A rule that resolves again is unbroken and, if its budget
+     * currency changed, currency-synced (design spec, Settings). Returns the broken
+     * rules for SnapshotResult.Success.brokenRules.
      */
     private suspend fun revalidateRules(): List<MappingRule> {
         val broken = mutableListOf<MappingRule>()
         for (rule in mappingRuleDao.getAll()) {
             if (!snapshotDao.accountExists(rule.budgetId, rule.accountId)) {
-                broken += rule.toDomain()
+                if (!rule.broken) mappingRuleDao.update(rule.copy(broken = true))
+                broken += rule.copy(broken = true).toDomain()
             } else {
                 val currency = snapshotDao.getBudgetCurrency(rule.budgetId)
-                if (currency != null && currency != rule.currencyCode) {
-                    mappingRuleDao.update(rule.copy(currencyCode = currency))
+                val syncCurrency = currency != null && currency != rule.currencyCode
+                if (syncCurrency || rule.broken) {
+                    mappingRuleDao.update(
+                        rule.copy(
+                            currencyCode = if (syncCurrency) currency!! else rule.currencyCode,
+                            broken = false, // resolves again -> clear the flag
+                        ),
+                    )
                 }
             }
         }

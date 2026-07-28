@@ -24,4 +24,6 @@ data class MappingRuleEntity(
     val budgetId: String,
     val accountId: String,
     val currencyCode: String,
+    /** Set when snapshot revalidation or a post-time 404 finds the target gone. */
+    val broken: Boolean = false,
 )

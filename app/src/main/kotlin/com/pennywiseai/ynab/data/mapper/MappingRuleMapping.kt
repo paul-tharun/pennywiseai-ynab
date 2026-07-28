@@ -12,6 +12,7 @@ fun MappingRuleEntity.toDomain(): MappingRule = MappingRule(
     budgetId = budgetId,
     accountId = accountId,
     currencyCode = currencyCode,
+    broken = broken,
 )
 
 fun MappingRule.toEntity(id: Long = 0): MappingRuleEntity = MappingRuleEntity(
@@ -21,4 +22,5 @@ fun MappingRule.toEntity(id: Long = 0): MappingRuleEntity = MappingRuleEntity(
     budgetId = budgetId,
     accountId = accountId,
     currencyCode = currencyCode,
+    broken = broken,
 )
