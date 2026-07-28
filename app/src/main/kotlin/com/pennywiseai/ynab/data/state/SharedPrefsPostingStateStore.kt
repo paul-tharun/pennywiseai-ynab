@@ -4,6 +4,9 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 
 /**
  * PostingStateStore backed by plain SharedPreferences. The pause flag is a boolean
@@ -21,6 +24,15 @@ class SharedPrefsPostingStateStore @Inject constructor(
 
     override fun setPaused(paused: Boolean) {
         prefs.edit().putBoolean(KEY_PAUSED, paused).apply()
+    }
+
+    override fun observePaused(): Flow<Boolean> = callbackFlow {
+        trySend(isPaused())
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_PAUSED) trySend(isPaused())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
     private companion object {

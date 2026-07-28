@@ -1,5 +1,7 @@
 package com.pennywiseai.ynab.data.state
 
+import kotlinx.coroutines.flow.Flow
+
 /**
  * The persistent `postingPaused` flag (design spec, Error handling). Set when the
  * pipeline hits a 401 or finds no token — while paused the pipeline records FAILED
@@ -14,4 +16,7 @@ interface PostingStateStore {
 
     /** Pause (true) or resume (false) posting. */
     fun setPaused(paused: Boolean)
+
+    /** Emits the current paused flag immediately, then every subsequent change. */
+    fun observePaused(): Flow<Boolean>
 }
