@@ -7,6 +7,7 @@ import androidx.room.Query
 import com.pennywiseai.ynab.data.local.MessageStatus
 import com.pennywiseai.ynab.data.local.UnroutedSuggestion
 import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ProcessedMessageDao {
@@ -48,4 +49,34 @@ interface ProcessedMessageDao {
         """,
     )
     suspend fun getUnroutedSuggestions(status: MessageStatus): List<UnroutedSuggestion>
+
+    @Query("SELECT * FROM processed_messages ORDER BY timestamp DESC")
+    fun observeAll(): Flow<List<ProcessedMessageEntity>>
+
+    @Query("SELECT * FROM processed_messages WHERE status = :status ORDER BY timestamp DESC")
+    fun observeByStatus(status: MessageStatus): Flow<List<ProcessedMessageEntity>>
+
+    /** Reactive form of getUnroutedSuggestions — the same NOT-EXISTS-against-rules query. */
+    @Query(
+        """
+        SELECT DISTINCT p.bankName AS bankName, p.last4 AS last4
+        FROM processed_messages p
+        WHERE p.status = :status
+          AND NOT EXISTS (
+            SELECT 1 FROM mapping_rules r
+            WHERE r.bankName = p.bankName
+              AND (r.last4 = p.last4 OR r.last4 = '')
+          )
+        ORDER BY p.bankName, p.last4
+        """,
+    )
+    fun observeUnroutedSuggestions(status: MessageStatus): Flow<List<UnroutedSuggestion>>
+
+    /** Earliest timestamp among rows of [status], or null if none — bounds a re-drive window. */
+    @Query("SELECT MIN(timestamp) FROM processed_messages WHERE status = :status")
+    suspend fun getEarliestTimestampByStatus(status: MessageStatus): Long?
+
+    /** Earliest timestamp among [status] rows for one bank — bounds a per-route retroactive import. */
+    @Query("SELECT MIN(timestamp) FROM processed_messages WHERE status = :status AND bankName = :bankName")
+    suspend fun getEarliestTimestampByStatusAndBank(status: MessageStatus, bankName: String): Long?
 }
