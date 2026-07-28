@@ -2,6 +2,7 @@ package com.pennywiseai.ynab.data.local
 
 import android.content.Context
 import androidx.room.Room
+import com.pennywiseai.ynab.data.local.dao.MappingRuleDao
 import com.pennywiseai.ynab.data.local.dao.ProcessedMessageDao
 import dagger.Module
 import dagger.Provides
@@ -22,4 +23,8 @@ object DatabaseModule {
     @Provides
     fun provideProcessedMessageDao(db: PennyWiseDatabase): ProcessedMessageDao =
         db.processedMessageDao()
+
+    @Provides
+    fun provideMappingRuleDao(db: PennyWiseDatabase): MappingRuleDao =
+        db.mappingRuleDao()
 }

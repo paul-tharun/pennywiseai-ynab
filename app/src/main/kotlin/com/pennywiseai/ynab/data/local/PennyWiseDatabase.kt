@@ -3,7 +3,9 @@ package com.pennywiseai.ynab.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.pennywiseai.ynab.data.local.dao.MappingRuleDao
 import com.pennywiseai.ynab.data.local.dao.ProcessedMessageDao
+import com.pennywiseai.ynab.data.local.entity.MappingRuleEntity
 import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
 
 /**
@@ -14,6 +16,7 @@ import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
 @Database(
     entities = [
         ProcessedMessageEntity::class,
+        MappingRuleEntity::class,
     ],
     version = 1,
     exportSchema = false,
@@ -21,4 +24,5 @@ import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
 @TypeConverters(Converters::class)
 abstract class PennyWiseDatabase : RoomDatabase() {
     abstract fun processedMessageDao(): ProcessedMessageDao
+    abstract fun mappingRuleDao(): MappingRuleDao
 }
