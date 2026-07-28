@@ -24,7 +24,7 @@ import javax.inject.Singleton
  * dropped and never logged.
  */
 @Singleton
-class TransactionPipeline @Inject constructor(
+open class TransactionPipeline @Inject constructor(
     private val smsParser: SmsParser,
     private val mapper: TransactionMapper,
     private val resolver: MappingResolver,
@@ -83,7 +83,7 @@ class TransactionPipeline @Inject constructor(
     }
 
     /** Process ONE message end-to-end (real-time path): classify, record, POST if Postable. */
-    suspend fun process(body: String, sender: String, timestamp: Long): PipelineResult =
+    open suspend fun process(body: String, sender: String, timestamp: Long): PipelineResult =
         when (val c = classify(body, sender, timestamp)) {
             is Classification.Dropped -> PipelineResult.Dropped
             is Classification.Skipped -> {
