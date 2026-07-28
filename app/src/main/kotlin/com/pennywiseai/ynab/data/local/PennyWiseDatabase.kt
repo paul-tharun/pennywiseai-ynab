@@ -5,6 +5,9 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.pennywiseai.ynab.data.local.dao.MappingRuleDao
 import com.pennywiseai.ynab.data.local.dao.ProcessedMessageDao
+import com.pennywiseai.ynab.data.local.dao.SnapshotDao
+import com.pennywiseai.ynab.data.local.entity.AccountEntity
+import com.pennywiseai.ynab.data.local.entity.BudgetEntity
 import com.pennywiseai.ynab.data.local.entity.MappingRuleEntity
 import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
 
@@ -17,6 +20,8 @@ import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
     entities = [
         ProcessedMessageEntity::class,
         MappingRuleEntity::class,
+        BudgetEntity::class,
+        AccountEntity::class,
     ],
     version = 1,
     exportSchema = false,
@@ -25,4 +30,5 @@ import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
 abstract class PennyWiseDatabase : RoomDatabase() {
     abstract fun processedMessageDao(): ProcessedMessageDao
     abstract fun mappingRuleDao(): MappingRuleDao
+    abstract fun snapshotDao(): SnapshotDao
 }

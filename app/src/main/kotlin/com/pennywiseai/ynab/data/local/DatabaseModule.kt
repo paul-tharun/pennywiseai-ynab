@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.pennywiseai.ynab.data.local.dao.MappingRuleDao
 import com.pennywiseai.ynab.data.local.dao.ProcessedMessageDao
+import com.pennywiseai.ynab.data.local.dao.SnapshotDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -27,4 +28,8 @@ object DatabaseModule {
     @Provides
     fun provideMappingRuleDao(db: PennyWiseDatabase): MappingRuleDao =
         db.mappingRuleDao()
+
+    @Provides
+    fun provideSnapshotDao(db: PennyWiseDatabase): SnapshotDao =
+        db.snapshotDao()
 }
