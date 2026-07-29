@@ -23,7 +23,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** A pending create/edit from the rule editor. `last4` null (or blank) = bank wildcard. */
+/** A pending create/edit from the rule editor. `last4` null (or blank) = bank wildcard.
+ *  `ignored` = an "ignore / route to null" rule (no destination). */
 data class RuleDraft(
     val bankName: String,
     val last4: String?,
@@ -31,6 +32,7 @@ data class RuleDraft(
     val accountId: String,
     val currencyCode: String,
     val editRuleId: Long?,
+    val ignored: Boolean = false,
 )
 
 /** Outcome of [RulesViewModel.saveRule]. */
@@ -75,7 +77,7 @@ class RulesViewModel @Inject constructor(
      */
     suspend fun saveRule(draft: RuleDraft): SaveRuleResult {
         if (draft.bankName.isBlank()) return SaveRuleResult.Invalid("Bank name required")
-        if (draft.budgetId.isBlank() || draft.accountId.isBlank()) {
+        if (!draft.ignored && (draft.budgetId.isBlank() || draft.accountId.isBlank())) {
             return SaveRuleResult.Invalid("Pick a budget and account")
         }
         val rule = MappingRule(
@@ -84,6 +86,7 @@ class RulesViewModel @Inject constructor(
             budgetId = draft.budgetId,
             accountId = draft.accountId,
             currencyCode = draft.currencyCode,
+            ignored = draft.ignored,
         )
         return try {
             if (draft.editRuleId != null) {
@@ -95,6 +98,20 @@ class RulesViewModel @Inject constructor(
         } catch (_: SQLiteConstraintException) {
             SaveRuleResult.DuplicateRoute
         }
+    }
+
+    /**
+     * One-tap ignore from a "NEEDS ROUTING" suggestion: store an ignore rule for this exact
+     * (bank, last4) so its messages drop and the combo leaves the suggestions list. A
+     * suggestion has no covering rule, so the insert cannot conflict; the result is ignored.
+     */
+    fun ignoreSuggestion(bankName: String, last4: String?) = viewModelScope.launch {
+        saveRule(
+            RuleDraft(
+                bankName = bankName, last4 = last4, budgetId = "", accountId = "",
+                currencyCode = "", editRuleId = null, ignored = true,
+            ),
+        )
     }
 
     fun deleteRule(rule: MappingRule) = viewModelScope.launch {
