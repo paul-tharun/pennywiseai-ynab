@@ -26,4 +26,6 @@ data class MappingRuleEntity(
     val currencyCode: String,
     /** Set when snapshot revalidation or a post-time 404 finds the target gone. */
     val broken: Boolean = false,
+    /** True for an ignore rule (route to null). Destination columns are empty and unused. */
+    val ignored: Boolean = false,
 )

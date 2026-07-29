@@ -13,6 +13,7 @@ fun MappingRuleEntity.toDomain(): MappingRule = MappingRule(
     accountId = accountId,
     currencyCode = currencyCode,
     broken = broken,
+    ignored = ignored,
 )
 
 fun MappingRule.toEntity(id: Long = 0): MappingRuleEntity = MappingRuleEntity(
@@ -23,4 +24,5 @@ fun MappingRule.toEntity(id: Long = 0): MappingRuleEntity = MappingRuleEntity(
     accountId = accountId,
     currencyCode = currencyCode,
     broken = broken,
+    ignored = ignored,
 )
