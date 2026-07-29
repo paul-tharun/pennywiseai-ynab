@@ -28,4 +28,21 @@ class RoutePreviewTest {
         assertNull(routePreview("SBI", "7756", null, "Everyday", "INR")) // no budget
         assertNull(routePreview("SBI", "7756", "Personal", null, "INR")) // no account
     }
+
+    @Test
+    fun `ignored preview shows the card routed to Ignored`() {
+        assertEquals("SBI ·7756 → Ignored",
+            routePreview("SBI", "7756", null, null, null, ignored = true))
+    }
+
+    @Test
+    fun `ignored preview renders a blank last4 as any`() {
+        assertEquals("SBI ·any → Ignored",
+            routePreview("SBI", "", null, null, null, ignored = true))
+    }
+
+    @Test
+    fun `ignored preview is null when the bank is blank`() {
+        assertNull(routePreview("", "7756", null, null, null, ignored = true))
+    }
 }
