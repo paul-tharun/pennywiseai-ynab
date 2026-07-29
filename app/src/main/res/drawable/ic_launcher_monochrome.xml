@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Themed-icon (Android 13+) monochrome layer: the owl reduced to one silhouette.
+  Eyes and beak are punched out with evenOdd winding so they read once the system
+  tints everything to a single wallpaper colour.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="53"
+        android:scaleX="0.86"
+        android:scaleY="0.86">
+        <path
+            android:fillColor="#1F1F1F"
+            android:fillType="evenOdd"
+            android:pathData="M54,24 C33,24 25,39 25,56 C25,74 37,82 54,82 C71,82 83,74 83,56 C83,39 75,24 54,24 Z M36,45 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z M58,45 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z M50,55 L58,55 L54,62 Z" />
+    </group>
+</vector>
