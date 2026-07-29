@@ -52,6 +52,7 @@ fun HomeScreen(
     val filter by viewModel.filter.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val rescan by viewModel.rescanState.collectAsStateWithLifecycle()
+    val bodies by viewModel.bodies.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize()) {
         HomeHeader(
@@ -74,8 +75,10 @@ fun HomeScreen(
                 items(items, key = { it.importId }) { item ->
                     TransactionRow(
                         item = item,
+                        bodyState = bodies[item.importId],
                         onRetry = { viewModel.retry(item) },
                         onMapRoute = { onMapRoute(item.bankName, item.last4) },
+                        onToggleBody = { viewModel.toggleBody(item) },
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
@@ -193,8 +196,10 @@ private fun ListHeader(filter: MessageStatus?, count: Int, onClear: () -> Unit) 
 @Composable
 private fun TransactionRow(
     item: ProcessedMessageEntity,
+    bodyState: MessageBodyState?,
     onRetry: () -> Unit,
     onMapRoute: () -> Unit,
+    onToggleBody: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -214,15 +219,44 @@ private fun TransactionRow(
         item.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
-        Row {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             if (item.status == MessageStatus.FAILED) {
                 TextButton(onClick = onRetry) { Text("Retry") }
             }
             if (item.status == MessageStatus.SKIPPED_UNROUTED) {
                 TextButton(onClick = onMapRoute) { Text("Map this card →") }
+                TextButton(onClick = onToggleBody) {
+                    Text(if (bodyState == null) "Show message" else "Hide message")
+                }
             }
         }
+        if (bodyState != null) MessageBody(bodyState)
     }
+}
+
+/** The expanded SMS-body preview under an unrouted row: the raw text, or a status line. */
+@Composable
+private fun MessageBody(state: MessageBodyState) {
+    val text = when (state) {
+        MessageBodyState.Loading -> "Loading…"
+        MessageBodyState.Unavailable -> "Message no longer in inbox."
+        is MessageBodyState.Loaded -> state.body
+    }
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = if (state is MessageBodyState.Loaded) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            MaterialTheme.colorScheme.outline
+        },
+        modifier = Modifier
+            .padding(top = 4.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    )
 }
 
 @Composable
