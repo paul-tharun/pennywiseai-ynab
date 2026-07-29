@@ -8,12 +8,14 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 
 /**
  * The app's single Material 3 theme. Uses dynamic color on API 31+ (personal tool —
  * matching the device wallpaper is the cheapest way to look native) and falls back to
- * the M3 baseline scheme below 31. No custom brand palette in v1 (YAGNI).
+ * the M3 baseline scheme below 31. Also provides [LocalStatusColors] — the success/warning
+ * semantic colors M3's scheme lacks — selected for the active light/dark mode.
  */
 @Composable
 fun PennyWiseTheme(
@@ -27,5 +29,7 @@ fun PennyWiseTheme(
         darkTheme -> darkColorScheme()
         else -> lightColorScheme()
     }
-    MaterialTheme(colorScheme = colorScheme, content = content)
+    CompositionLocalProvider(LocalStatusColors provides statusColors(darkTheme)) {
+        MaterialTheme(colorScheme = colorScheme, content = content)
+    }
 }

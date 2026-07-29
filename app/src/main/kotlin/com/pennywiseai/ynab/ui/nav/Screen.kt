@@ -7,13 +7,13 @@ package com.pennywiseai.ynab.ui.nav
  */
 sealed interface Screen {
     sealed interface Tab : Screen
-    data object History : Tab
+    data object Home : Tab
     data object Backfill : Tab
     data object Settings : Tab
 
     /**
      * The add/edit-rule editor. When [prefillBank] is set it was opened from an unrouted
-     * suggestion / history "map this route" action — the editor pre-fills bank+last4 and,
+     * suggestion / Home "map this route" action — the editor pre-fills bank+last4 and,
      * after saving, offers a retroactive import for that route.
      */
     data class RuleEditor(

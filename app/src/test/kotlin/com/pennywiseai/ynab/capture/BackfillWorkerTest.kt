@@ -90,7 +90,7 @@ class BackfillWorkerTest {
         val reader = FakeSmsInboxReader(listOf(RawSms("VM-HDFCBK", "HDFC a", 10L), RawSms("VM-HDFCBK", "HDFC b", 20L)))
         val result = worker(reader).doWork()
 
-        assertEquals(ListenableWorker.Result.success(), result)
+        assertTrue(result is ListenableWorker.Result.Success)
         assertEquals(1, poster.calls) // one bulk POST for budget b1
         val manager = context.getSystemService(NotificationManager::class.java)
         assertNotNull(shadowOf(manager).getNotification(Notifier.SUMMARY_NOTIFICATION_ID))
@@ -99,7 +99,7 @@ class BackfillWorkerTest {
     @Test
     fun `empty range still succeeds and summarizes zero`() = runTest {
         val result = worker(FakeSmsInboxReader(emptyList())).doWork()
-        assertEquals(ListenableWorker.Result.success(), result)
+        assertTrue(result is ListenableWorker.Result.Success)
         assertEquals(0, poster.calls)
     }
 
@@ -107,7 +107,7 @@ class BackfillWorkerTest {
     fun `progress notifications are throttled to roughly one percent of the batch`() = runTest {
         val result = worker(inbox(250)).doWork()
 
-        assertEquals(ListenableWorker.Result.success(), result)
+        assertTrue(result is ListenableWorker.Result.Success)
         assertEquals(3, poster.calls) // 250 messages really were processed (chunks of 100)
         // Un-throttled this would be 1 + 250 setForeground IPCs; the step is max(1, 250/100) = 2,
         // so the batch redraws at done = 2, 4, ... 250 -> 1 initial + 125 updates.
@@ -115,6 +115,17 @@ class BackfillWorkerTest {
         assertEquals(126, foreground.updates.size)
         assertEquals("Scanning…", foreground.updates.first().text())
         assertEquals("250 / 250", foreground.updates.last().text()) // the final state always lands
+    }
+
+    @Test
+    fun `success output carries the run tally`() = runTest {
+        val reader = FakeSmsInboxReader(listOf(RawSms("VM-HDFCBK", "HDFC a", 10L), RawSms("VM-HDFCBK", "HDFC b", 20L)))
+        val result = worker(reader).doWork()
+
+        val output = (result as ListenableWorker.Result.Success).outputData
+        assertEquals(2, output.getInt(BackfillWorker.KEY_RESULT_POSTED, -1))
+        assertEquals(0, output.getInt(BackfillWorker.KEY_RESULT_SKIPPED, -1))
+        assertEquals(0, output.getInt(BackfillWorker.KEY_RESULT_FAILED, -1))
     }
 
     @Test

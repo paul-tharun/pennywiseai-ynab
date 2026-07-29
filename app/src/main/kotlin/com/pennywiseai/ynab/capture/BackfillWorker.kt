@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.pennywiseai.ynab.capture.notify.Notifier
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -47,19 +48,33 @@ class BackfillWorker @AssistedInject constructor(
                 if (done == total || done - lastShown >= progressStep(total)) {
                     lastShown = done
                     setForeground(notifier.backfillForegroundInfo(done, total))
+                    // In-app telemetry: same throttle as the notification (Task 3). Observed
+                    // by the Home re-scan result and the Import progress bar.
+                    setProgress(workDataOf(KEY_PROGRESS_DONE to done, KEY_PROGRESS_TOTAL to total))
                 }
             },
             isCancelled = { isStopped },
         )
 
         notifier.notifyBackfillSummary(summary)
-        return Result.success()
+        return Result.success(
+            workDataOf(
+                KEY_RESULT_POSTED to summary.posted,
+                KEY_RESULT_SKIPPED to summary.skipped,
+                KEY_RESULT_FAILED to summary.failed,
+            ),
+        )
     }
 
     companion object {
         const val KEY_FROM = "from_millis"
         const val KEY_TO = "to_millis"
         const val WORK_NAME = "sms-backfill"
+        const val KEY_PROGRESS_DONE = "progress_done"
+        const val KEY_PROGRESS_TOTAL = "progress_total"
+        const val KEY_RESULT_POSTED = "result_posted"
+        const val KEY_RESULT_SKIPPED = "result_skipped"
+        const val KEY_RESULT_FAILED = "result_failed"
 
         /** Redraw the progress bar at most this many times per run (~1% granularity). */
         private const val PROGRESS_STEPS = 100

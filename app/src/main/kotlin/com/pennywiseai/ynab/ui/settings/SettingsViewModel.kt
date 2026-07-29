@@ -6,6 +6,7 @@ import com.pennywiseai.ynab.core.model.MappingRule
 import com.pennywiseai.ynab.data.local.MessageStatus
 import com.pennywiseai.ynab.data.local.dao.MappingRuleDao
 import com.pennywiseai.ynab.data.local.dao.ProcessedMessageDao
+import com.pennywiseai.ynab.data.local.dao.SnapshotDao
 import com.pennywiseai.ynab.data.mapper.toDomain
 import com.pennywiseai.ynab.data.repository.SnapshotResult
 import com.pennywiseai.ynab.data.repository.YnabRepository
@@ -30,6 +31,9 @@ sealed interface TokenUiState {
     data class Error(val message: String) : TokenUiState
 }
 
+/** The persistent "Connected · N budgets · M accounts" summary on Settings. */
+data class ConnectionInfo(val budgetCount: Int, val accountCount: Int)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: YnabRepository,
@@ -38,6 +42,7 @@ class SettingsViewModel @Inject constructor(
     private val mappingRuleDao: MappingRuleDao,
     private val processedMessageDao: ProcessedMessageDao,
     private val enqueuer: BackfillEnqueuer,
+    private val snapshotDao: SnapshotDao,
 ) : ViewModel() {
 
     val paused: StateFlow<Boolean> =
@@ -51,6 +56,22 @@ class SettingsViewModel @Inject constructor(
     private val _tokenState = MutableStateFlow<TokenUiState>(TokenUiState.Idle)
     val tokenState: StateFlow<TokenUiState> = _tokenState
 
+    private val _connection = MutableStateFlow<ConnectionInfo?>(null)
+    val connection: StateFlow<ConnectionInfo?> = _connection
+
+    /** Read snapshot counts for the connected-state row. Called when Settings opens and after refresh. */
+    fun loadConnection() {
+        viewModelScope.launch { reloadConnection() }
+    }
+
+    /** Shared by [loadConnection] and [refresh] so the connected row never shows stale counts. */
+    private suspend fun reloadConnection() {
+        val (budgets, accounts) = withContext(Dispatchers.IO) {
+            snapshotDao.countBudgets() to snapshotDao.countAccounts()
+        }
+        _connection.value = if (budgets > 0) ConnectionInfo(budgets, accounts) else null
+    }
+
     fun saveToken(token: String) {
         if (token.isBlank()) { _tokenState.value = TokenUiState.Error("Token can't be empty"); return }
         _tokenState.value = TokenUiState.Saving
@@ -58,6 +79,7 @@ class SettingsViewModel @Inject constructor(
             when (val result = withContext(Dispatchers.IO) { repository.saveTokenAndRefresh(token.trim()) }) {
                 is SnapshotResult.Success -> {
                     _tokenState.value = TokenUiState.Saved(result.budgetCount, result.accountCount)
+                    reloadConnection() // keep the "Connected · N budgets · M accounts" row current
                     retryFailedFrom(System.currentTimeMillis()) // spec: bulk-retry every FAILED on validated save
                 }
                 SnapshotResult.Unauthorized -> _tokenState.value = TokenUiState.Error("Token rejected by YNAB (401)")
@@ -70,7 +92,10 @@ class SettingsViewModel @Inject constructor(
         _tokenState.value = TokenUiState.Saving
         viewModelScope.launch {
             when (val result = withContext(Dispatchers.IO) { repository.refreshSnapshot() }) {
-                is SnapshotResult.Success -> _tokenState.value = TokenUiState.Saved(result.budgetCount, result.accountCount)
+                is SnapshotResult.Success -> {
+                    _tokenState.value = TokenUiState.Saved(result.budgetCount, result.accountCount)
+                    reloadConnection() // keep the "Connected · N budgets · M accounts" row current
+                }
                 SnapshotResult.Unauthorized -> _tokenState.value = TokenUiState.Error("Token rejected by YNAB (401)")
                 is SnapshotResult.Error -> _tokenState.value = TokenUiState.Error(result.message)
             }

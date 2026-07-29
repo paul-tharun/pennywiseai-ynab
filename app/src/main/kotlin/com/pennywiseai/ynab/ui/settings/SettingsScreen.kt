@@ -1,16 +1,21 @@
 package com.pennywiseai.ynab.ui.settings
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,12 +25,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pennywiseai.ynab.ui.rules.RulesList
+import com.pennywiseai.ynab.ui.theme.LocalStatusColors
 
 @Composable
 fun SettingsScreen(
@@ -34,47 +41,79 @@ fun SettingsScreen(
     onTokenCleared: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
-    val brokenRules by viewModel.brokenRules.collectAsStateWithLifecycle()
+    val connection by viewModel.connection.collectAsStateWithLifecycle()
+    val tokenState by viewModel.tokenState.collectAsStateWithLifecycle()
+    var replacing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { viewModel.loadConnection() }
+    // A successful replace means the connected row now has fresh counts; drop back to it instead
+    // of leaving the token field + Cancel button stuck on screen.
+    LaunchedEffect(tokenState) { if (tokenState is TokenUiState.Saved) replacing = false }
 
     LazyColumn(Modifier.fillMaxWidth().padding(16.dp)) {
+        item { SectionTitle("YNAB") }
         item {
-            Text("YNAB token", style = MaterialTheme.typography.titleMedium)
-            // Token field + save/validate + state display are shared with onboarding via TokenEntry (DRY).
-            TokenEntry(viewModel)
-            Row {
-                OutlinedButton(onClick = { viewModel.refresh() }) { Text("Refresh") }
-                TextButton(onClick = { viewModel.clearToken(); onTokenCleared() }) { Text("Clear") }
+            val info = connection
+            if (info != null && !replacing) {
+                ConnectedRow(
+                    summary = "Connected · ${info.budgetCount} budgets · ${info.accountCount} accounts",
+                    onRefresh = { viewModel.refresh() },
+                    onReplace = { replacing = true },
+                    onDisconnect = { viewModel.clearToken(); onTokenCleared() },
+                )
+            } else {
+                // Not connected, or replacing a token: show the field directly.
+                TokenEntry(viewModel)
+                if (replacing) TextButton(onClick = { replacing = false }) { Text("Cancel") }
             }
         }
 
-        if (brokenRules.isNotEmpty()) {
-            item {
-                Spacer(Modifier.height(16.dp))
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(
-                            "${brokenRules.size} broken route(s)",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                        Text("Their target budget/account no longer exists. Edit or delete them below.")
-                    }
-                }
-            }
-        }
+        item { Spacer(Modifier.height(24.dp)); HorizontalDivider() }
 
         item {
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth()) {
-                Text("Mapping rules", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                TextButton(onClick = onAddRule) { Text("Add") }
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                SectionTitle("Routes", Modifier.weight(1f))
+                TextButton(onClick = onAddRule) { Text("+ Add") }
             }
         }
-
-        // Rules list + unrouted suggestions are rendered by RulesList (Task 8), which
-        // reads its own RulesViewModel. It is embedded here so Settings is the one hub.
+        // Rules + "Needs routing" subheader live in RulesList (restyled in this task).
         item { RulesList(onMapSuggestion = onMapSuggestion) }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier.padding(vertical = 4.dp),
+    )
+}
+
+@Composable
+private fun ConnectedRow(
+    summary: String,
+    onRefresh: () -> Unit,
+    onReplace: () -> Unit,
+    onDisconnect: () -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            Icons.Filled.CheckCircle,
+            contentDescription = null,
+            tint = LocalStatusColors.current.success,
+        )
+        Text(summary, Modifier.weight(1f).padding(start = 12.dp), style = MaterialTheme.typography.bodyLarge)
+        IconButton(onClick = { menu = true }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = "YNAB options")
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Refresh") }, onClick = { menu = false; onRefresh() })
+            DropdownMenuItem(text = { Text("Replace token") }, onClick = { menu = false; onReplace() })
+            DropdownMenuItem(text = { Text("Disconnect") }, onClick = { menu = false; onDisconnect() })
+        }
     }
 }
 
