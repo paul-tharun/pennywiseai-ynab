@@ -3,6 +3,9 @@ package com.pennywiseai.ynab.ui.home
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.pennywiseai.ynab.capture.BackfillRun
+import com.pennywiseai.ynab.capture.FakeSmsInboxReader
+import com.pennywiseai.ynab.capture.RawSms
+import com.pennywiseai.ynab.capture.SmsInboxReader
 import com.pennywiseai.ynab.data.local.MessageStatus
 import com.pennywiseai.ynab.data.local.PennyWiseDatabase
 import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
@@ -53,18 +56,24 @@ class HomeViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun row(id: String, status: MessageStatus, ts: Long) = ProcessedMessageEntity(
-        importId = id, sender = "s", bankName = "HDFC Bank", last4 = "1234",
-        amount = BigDecimal.ONE, currency = "INR", status = status, error = null, timestamp = ts,
-    )
+    private fun row(id: String, status: MessageStatus, ts: Long, sender: String = "s") =
+        ProcessedMessageEntity(
+            importId = id, sender = sender, bankName = "HDFC Bank", last4 = "1234",
+            amount = BigDecimal.ONE, currency = "INR", status = status, error = null, timestamp = ts,
+        )
 
-    private fun vm(now: Long = 10_000_000L) = HomeViewModel(
-        dao = db.processedMessageDao(),
-        retrier = MessageRetrier {},
-        enqueuer = BackfillEnqueuer { from, to -> capturedFrom = from; capturedTo = to },
-        observer = BackfillObserver { runFlow },
-        now = { now },
-    )
+    private fun unroutedRow(id: String, sender: String, ts: Long) =
+        row(id, MessageStatus.SKIPPED_UNROUTED, ts, sender)
+
+    private fun vm(now: Long = 10_000_000L, inboxReader: SmsInboxReader = FakeSmsInboxReader()) =
+        HomeViewModel(
+            dao = db.processedMessageDao(),
+            retrier = MessageRetrier {},
+            enqueuer = BackfillEnqueuer { from, to -> capturedFrom = from; capturedTo = to },
+            observer = BackfillObserver { runFlow },
+            inboxReader = inboxReader,
+            now = { now },
+        )
 
     @Test
     fun `stats count each status and report the newest timestamp`() = runTest {
@@ -106,6 +115,57 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         assertEquals(RescanState.Result(imported = 3), vm.rescanState.value)
+    }
+
+    @Test
+    fun `toggleBody loads the body of the exact inbox message for an unrouted row`() = runTest {
+        val reader = FakeSmsInboxReader(
+            listOf(RawSms("VM-HDFCBK", "HDFC: Rs.200 spent on card 1234", 500L)),
+        )
+        val vm = vm(inboxReader = reader)
+
+        vm.toggleBody(unroutedRow("u1", sender = "VM-HDFCBK", ts = 500))
+        advanceUntilIdle()
+
+        assertEquals(
+            MessageBodyState.Loaded("HDFC: Rs.200 spent on card 1234"),
+            vm.bodies.value["u1"],
+        )
+    }
+
+    @Test
+    fun `toggleBody reports Unavailable when the SMS is no longer in the inbox`() = runTest {
+        val vm = vm(inboxReader = FakeSmsInboxReader(emptyList()))
+
+        vm.toggleBody(unroutedRow("u1", sender = "VM-HDFCBK", ts = 500))
+        advanceUntilIdle()
+
+        assertEquals(MessageBodyState.Unavailable, vm.bodies.value["u1"])
+    }
+
+    @Test
+    fun `toggleBody ignores a same-millisecond message from another sender`() = runTest {
+        val reader = FakeSmsInboxReader(listOf(RawSms("SPAMBOX", "not the bank", 500L)))
+        val vm = vm(inboxReader = reader)
+
+        vm.toggleBody(unroutedRow("u1", sender = "VM-HDFCBK", ts = 500))
+        advanceUntilIdle()
+
+        assertEquals(MessageBodyState.Unavailable, vm.bodies.value["u1"])
+    }
+
+    @Test
+    fun `toggleBody a second time collapses the row`() = runTest {
+        val reader = FakeSmsInboxReader(listOf(RawSms("VM-HDFCBK", "body", 500L)))
+        val vm = vm(inboxReader = reader)
+        val item = unroutedRow("u1", sender = "VM-HDFCBK", ts = 500)
+
+        vm.toggleBody(item)
+        advanceUntilIdle()
+        vm.toggleBody(item)
+        advanceUntilIdle()
+
+        assertEquals(null, vm.bodies.value["u1"])
     }
 
     @Test
