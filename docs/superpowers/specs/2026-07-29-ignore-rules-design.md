@@ -43,8 +43,10 @@ route-vs-ignore distinction with an explicit discriminator (`ignored: Boolean`,
 or a small sealed destination) rather than overloading nulls.
 
 - `core/model/MappingRule.kt`: an ignore rule carries no `budgetId`/`accountId`.
-- `data/local/entity/MappingRuleEntity.kt`: nullable/blank destination columns +
-  `ignored` flag; **Room migration** to add the column.
+- `data/local/entity/MappingRuleEntity.kt`: blank (`""`) destination columns +
+  `ignored` flag. The DB uses `fallbackToDestructiveMigration(dropAllTables = true)`
+  (pre-release, `exportSchema = false`), so the schema change is a **`@Database`
+  version bump only** — no hand-written `Migration`.
 - `data/mapper/MappingRuleMapping.kt`: `toDomain`/`toEntity` handle both shapes.
 - Keying unchanged: `(bankName, last4)`, wildcard stored as `""`. The existing
   UNIQUE `(bankName, last4)` index means a given key is **either** routed **or**
@@ -100,7 +102,7 @@ match. The inverse (route the whole bank, ignore one card) also works.
 - `saveRule`: ignore draft skips budget/account validation; routed draft still
   requires them; duplicate `(bank, last4)` still conflicts.
 - ViewModel: one-tap ignore writes the rule and removes the suggestion.
-- Room migration test for the new column.
+- (No migration test — destructive migration; version bump only.)
 
 ## Affected files
 
