@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive-icon foreground: "Perched Penny" — a wise chibi owl in tiny gold
+  spectacles, sitting on a coin. All shapes are paths (VectorDrawable has no
+  circle/ellipse); the whole scene is scaled into the 66-72dp safe zone.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.86"
+        android:scaleY="0.86"
+        android:translateY="-3">
+
+        <!-- coin shadow -->
+        <path
+            android:fillColor="#C9922E"
+            android:pathData="M26,86 a28,9 0 1,0 56,0 a28,9 0 1,0 -56,0 Z" />
+        <!-- coin face -->
+        <path
+            android:fillColor="#F2C357"
+            android:pathData="M26,84 a28,9 0 1,0 56,0 a28,9 0 1,0 -56,0 Z" />
+        <!-- coin inner ring -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#E6B652"
+            android:strokeWidth="1.4"
+            android:pathData="M33,83 a21,6 0 1,0 42,0 a21,6 0 1,0 -42,0 Z" />
+
+        <!-- feet -->
+        <path
+            android:strokeColor="#E8912F"
+            android:strokeWidth="2.4"
+            android:strokeLineCap="round"
+            android:pathData="M45,78 v6 M45,84 l-3,2 M45,84 l3,2" />
+        <path
+            android:strokeColor="#E8912F"
+            android:strokeWidth="2.4"
+            android:strokeLineCap="round"
+            android:pathData="M63,78 v6 M63,84 l-3,2 M63,84 l3,2" />
+
+        <!-- ear tufts -->
+        <path android:fillColor="#C98A55" android:pathData="M38,30 L47,20 L49,33 Z" />
+        <path android:fillColor="#C98A55" android:pathData="M70,30 L61,20 L59,33 Z" />
+
+        <!-- body -->
+        <path
+            android:fillColor="#E6AD6F"
+            android:pathData="M54,24 C33,24 25,39 25,56 C25,74 37,82 54,82 C71,82 83,74 83,56 C83,39 75,24 54,24 Z" />
+        <!-- wings -->
+        <path android:fillColor="#CF9457" android:pathData="M27,52 C24,62 27,73 35,79 C31,68 31,60 33,51 Z" />
+        <path android:fillColor="#CF9457" android:pathData="M81,52 C84,62 81,73 73,79 C77,68 77,60 75,51 Z" />
+        <!-- belly -->
+        <path
+            android:fillColor="#F7E3C0"
+            android:pathData="M54,48 C43,48 38,56 38,65 C38,74 45,80 54,80 C63,80 70,74 70,65 C70,56 65,48 54,48 Z" />
+        <!-- face disk -->
+        <path
+            android:fillColor="#F2D3A3"
+            android:pathData="M28,45 a26,22 0 1,0 52,0 a26,22 0 1,0 -52,0 Z" />
+
+        <!-- eye whites -->
+        <path android:fillColor="#FFFFFF" android:pathData="M30.5,45 a12.5,12.5 0 1,0 25,0 a12.5,12.5 0 1,0 -25,0 Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M52.5,45 a12.5,12.5 0 1,0 25,0 a12.5,12.5 0 1,0 -25,0 Z" />
+        <!-- pupils -->
+        <path android:fillColor="#22321F" android:pathData="M39.4,47 a5.6,5.6 0 1,0 11.2,0 a5.6,5.6 0 1,0 -11.2,0 Z" />
+        <path android:fillColor="#22321F" android:pathData="M57.4,47 a5.6,5.6 0 1,0 11.2,0 a5.6,5.6 0 1,0 -11.2,0 Z" />
+        <!-- catchlights -->
+        <path android:fillColor="#FFFFFF" android:pathData="M44.8,45.2 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M62.8,45.2 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 Z" />
+
+        <!-- wise spectacles -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#D99A2E"
+            android:strokeWidth="1.8"
+            android:pathData="M29.6,45 a13.4,13.4 0 1,0 26.8,0 a13.4,13.4 0 1,0 -26.8,0 Z" />
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#D99A2E"
+            android:strokeWidth="1.8"
+            android:pathData="M51.6,45 a13.4,13.4 0 1,0 26.8,0 a13.4,13.4 0 1,0 -26.8,0 Z" />
+        <path
+            android:strokeColor="#D99A2E"
+            android:strokeWidth="1.8"
+            android:pathData="M55.6,44 L52.4,44" />
+
+        <!-- beak -->
+        <path android:fillColor="#F0A02F" android:pathData="M50,55 L58,55 L54,62 Z" />
+    </group>
+</vector>
