@@ -41,7 +41,11 @@ fun RulesList(
                 Avatar(rule.bankName)
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(
-                        "${rule.bankName} ·${rule.last4 ?: "any"} → ${rule.currencyCode}",
+                        if (rule.ignored) {
+                            "${rule.bankName} ·${rule.last4 ?: "any"} → Ignored"
+                        } else {
+                            "${rule.bankName} ·${rule.last4 ?: "any"} → ${rule.currencyCode}"
+                        },
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     if (rule.broken) {
@@ -72,6 +76,7 @@ fun RulesList(
                         Modifier.weight(1f).padding(start = 12.dp),
                         style = MaterialTheme.typography.bodyLarge,
                     )
+                    TextButton(onClick = { viewModel.ignoreSuggestion(s.bankName, s.last4) }) { Text("Ignore") }
                     TextButton(onClick = { onMapSuggestion(s.bankName, s.last4) }) { Text("Map →") }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

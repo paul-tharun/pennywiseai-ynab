@@ -1,6 +1,7 @@
 package com.pennywiseai.ynab.ui.rules
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -8,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -27,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -51,6 +54,7 @@ fun RuleEditorScreen(
     var last4 by remember { mutableStateOf(args.prefillLast4 ?: "") }
     var budgetId by remember { mutableStateOf("") }
     var accountId by remember { mutableStateOf("") }
+    var ignore by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var offerImportFor by remember { mutableStateOf<String?>(null) }
 
@@ -59,7 +63,7 @@ fun RuleEditorScreen(
     val selectedBudget = budgets.firstOrNull { it.id == budgetId }
     val selectedAccount = accounts.firstOrNull { it.id == accountId }
     val currency = selectedBudget?.currencyCode ?: ""
-    val valid = bank.isNotBlank() && budgetId.isNotBlank() && accountId.isNotBlank()
+    val valid = bank.isNotBlank() && (ignore || (budgetId.isNotBlank() && accountId.isNotBlank()))
 
     Scaffold(
         topBar = {
@@ -75,11 +79,14 @@ fun RuleEditorScreen(
                         enabled = valid,
                         onClick = {
                             scope.launch {
-                                when (val result = viewModel.saveRule(
-                                    RuleDraft(bank, last4, budgetId, accountId, currency, args.editRuleId),
-                                )) {
+                                val draft = if (ignore) {
+                                    RuleDraft(bank, last4, "", "", "", args.editRuleId, ignored = true)
+                                } else {
+                                    RuleDraft(bank, last4, budgetId, accountId, currency, args.editRuleId)
+                                }
+                                when (val result = viewModel.saveRule(draft)) {
                                     SaveRuleResult.Saved ->
-                                        if (args.prefillBank != null) offerImportFor = bank else onDone()
+                                        if (args.prefillBank != null && !ignore) offerImportFor = bank else onDone()
                                     SaveRuleResult.DuplicateRoute ->
                                         error = "A route for this bank + last4 already exists"
                                     is SaveRuleResult.Invalid -> error = result.message
@@ -100,19 +107,25 @@ fun RuleEditorScreen(
             Text("Blank = match any card from this bank.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             Text("SEND TO", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 16.dp))
-            BudgetDropdown(
-                budgets = budgets,
-                selected = selectedBudget,
-                onSelect = { b -> budgetId = b.id; accountId = ""; viewModel.loadAccounts(b.id) },
-            )
-            AccountDropdown(
-                accounts = accounts,
-                selected = selectedAccount,
-                enabled = budgetId.isNotBlank(),
-                onSelect = { a -> accountId = a.id },
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = ignore, onCheckedChange = { ignore = it })
+                Text("Ignore / don't import", style = MaterialTheme.typography.bodyLarge)
+            }
+            if (!ignore) {
+                BudgetDropdown(
+                    budgets = budgets,
+                    selected = selectedBudget,
+                    onSelect = { b -> budgetId = b.id; accountId = ""; viewModel.loadAccounts(b.id) },
+                )
+                AccountDropdown(
+                    accounts = accounts,
+                    selected = selectedAccount,
+                    enabled = budgetId.isNotBlank(),
+                    onSelect = { a -> accountId = a.id },
+                )
+            }
 
-            routePreview(bank, last4, selectedBudget?.name, selectedAccount?.name, currency.ifBlank { null })?.let { line ->
+            routePreview(bank, last4, selectedBudget?.name, selectedAccount?.name, currency.ifBlank { null }, ignored = ignore)?.let { line ->
                 Text(
                     line,
                     style = MaterialTheme.typography.bodyMedium,
