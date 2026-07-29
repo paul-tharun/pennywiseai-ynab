@@ -66,9 +66,14 @@ open class TransactionPipeline @Inject constructor(
             return Classification.Skipped(MessageStatus.SKIPPED_NON_TRANSACTION, parsed, importId)
         }
 
-        // 3. Resolve the route (exact last4 beats bank wildcard). Missing OR broken -> fail
-        //    fast as SKIPPED_UNROUTED; a broken route never hits the network.
+        // 3. Resolve the route (exact last4 beats bank wildcard). An ignore rule ("route
+        //    to null") drops the message silently — never logged — before any other check.
+        //    Missing OR broken -> fail fast as SKIPPED_UNROUTED; a broken route never hits
+        //    the network.
         val rule = resolver.resolve(rules ?: currentRules(), parsed.bankName, parsed.accountLast4)
+        if (rule != null && rule.ignored) {
+            return Classification.Dropped
+        }
         if (rule == null || rule.broken) {
             return Classification.Skipped(MessageStatus.SKIPPED_UNROUTED, parsed, importId)
         }
