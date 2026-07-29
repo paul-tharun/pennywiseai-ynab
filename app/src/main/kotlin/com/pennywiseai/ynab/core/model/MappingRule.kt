@@ -14,4 +14,7 @@ data class MappingRule(
     /** True when the rule's target budget/account no longer resolves in the snapshot;
      *  its messages log SKIPPED_UNROUTED (design spec, Settings) until remapped. */
     val broken: Boolean = false,
+    /** True for an "ignore / route to null" rule: no destination; its messages are
+     *  dropped (never logged) instead of posted. broken is always false for these. */
+    val ignored: Boolean = false,
 )
