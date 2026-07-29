@@ -161,4 +161,42 @@ class RulesViewModelTest {
 
         assertFalse(enqueueCalled)
     }
+
+    @Test
+    fun `saveRule stores an ignore rule without a destination`() = runTest(dispatcher) {
+        val vm = vm()
+        val result = vm.saveRule(
+            RuleDraft(bankName = "SBI", last4 = "7756", budgetId = "", accountId = "",
+                currencyCode = "", editRuleId = null, ignored = true),
+        )
+        assertEquals(SaveRuleResult.Saved, result)
+        val rule = vm.rules.first { it.isNotEmpty() }.single()
+        assertTrue(rule.ignored)
+        assertEquals("7756", rule.last4)
+    }
+
+    @Test
+    fun `saveRule still requires a destination for a routed draft`() = runTest(dispatcher) {
+        val vm = vm()
+        val result = vm.saveRule(
+            RuleDraft(bankName = "SBI", last4 = "7756", budgetId = "", accountId = "",
+                currencyCode = "", editRuleId = null, ignored = false),
+        )
+        assertTrue(result is SaveRuleResult.Invalid)
+    }
+
+    @Test
+    fun `ignoreSuggestion writes an ignore rule and clears the suggestion`() = runTest(dispatcher) {
+        val vm = vm()
+        // A logged unrouted combo shows up as a suggestion...
+        db.processedMessageDao().upsert(unrouted("s1", "SBI", ts = 500L))
+        assertEquals(listOf("SBI"), vm.suggestions.first { it.isNotEmpty() }.map { it.bankName })
+
+        vm.ignoreSuggestion("SBI", "1234").join()
+        advanceUntilIdle()
+
+        // ...and disappears once an ignore rule covers it (NOT EXISTS against mapping_rules).
+        assertTrue(vm.suggestions.first { it.isEmpty() }.isEmpty())
+        assertTrue(db.mappingRuleDao().getAll().single().ignored)
+    }
 }
