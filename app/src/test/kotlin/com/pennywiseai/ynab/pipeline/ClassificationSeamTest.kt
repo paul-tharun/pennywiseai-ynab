@@ -141,4 +141,46 @@ class ClassificationSeamTest {
         pipeline().classify("b", "s", 2L)
         assertEquals(2, ruleDao.getAllCalls) // real-time path stays fresh-read per message
     }
+
+    @Test
+    fun `an exact ignore rule classifies Dropped`() = runTest {
+        val ignoreDao = FakeMappingRuleDao(
+            mutableListOf(
+                MappingRuleEntity(id = 1, bankName = "SBI", last4 = "7756",
+                    budgetId = "", accountId = "", currencyCode = "", ignored = true),
+            ),
+        )
+        val p = TransactionPipeline(
+            smsParser = SmsParser { _, _, _ -> parsed(bank = "SBI", last4 = "7756") },
+            mapper = mapper, resolver = resolver, poster = FakeTransactionPoster(),
+            mappingRuleDao = ignoreDao, processedMessageDao = logDao,
+            tokenStore = tokenStore, postingState = postingState,
+        )
+        assertEquals(Classification.Dropped, p.classify("b", "s", 1L))
+    }
+
+    @Test
+    fun `ignore wildcard drops other cards but an exact route still posts`() = runTest {
+        // "Ignore all SBI except card 7756": wildcard ignore + exact route.
+        val dao = FakeMappingRuleDao(
+            mutableListOf(
+                MappingRuleEntity(id = 1, bankName = "SBI", last4 = "",
+                    budgetId = "", accountId = "", currencyCode = "", ignored = true),
+                MappingRuleEntity(id = 2, bankName = "SBI", last4 = "7756",
+                    budgetId = "b1", accountId = "a1", currencyCode = "INR"),
+            ),
+        )
+        fun pipe(p: ParsedTransaction) = TransactionPipeline(
+            smsParser = SmsParser { _, _, _ -> p },
+            mapper = mapper, resolver = resolver, poster = FakeTransactionPoster(),
+            mappingRuleDao = dao, processedMessageDao = logDao,
+            tokenStore = tokenStore, postingState = postingState,
+        )
+        // The routed card posts...
+        assertTrue(pipe(parsed(bank = "SBI", last4 = "7756")).classify("b", "s", 1L)
+            is Classification.Postable)
+        // ...every other SBI card is dropped by the wildcard ignore.
+        assertEquals(Classification.Dropped,
+            pipe(parsed(bank = "SBI", last4 = "9999")).classify("b", "s", 2L))
+    }
 }

@@ -12,9 +12,9 @@ import com.pennywiseai.ynab.data.local.entity.MappingRuleEntity
 import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
 
 /**
- * The app's single local database. Entities are added task-by-task in Plan 2;
- * version stays at 1 (pre-release, no migrations) and schema export is off until
- * v1 ships.
+ * The app's single local database. Pre-release, the version bumps freely on any
+ * schema change — Room recreates the tables via fallbackToDestructiveMigration
+ * (no hand-written migrations), and schema export stays off until v1 ships.
  */
 @Database(
     entities = [
@@ -23,7 +23,7 @@ import com.pennywiseai.ynab.data.local.entity.ProcessedMessageEntity
         BudgetEntity::class,
         AccountEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

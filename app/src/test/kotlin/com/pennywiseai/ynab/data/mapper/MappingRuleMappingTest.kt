@@ -3,7 +3,9 @@ package com.pennywiseai.ynab.data.mapper
 import com.pennywiseai.ynab.core.model.MappingRule
 import com.pennywiseai.ynab.data.local.entity.MappingRuleEntity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MappingRuleMappingTest {
@@ -40,5 +42,29 @@ class MappingRuleMappingTest {
     @Test
     fun `broken defaults to false`() {
         assertEquals(false, MappingRule("HDFC Bank", "1234", "b1", "a1", "INR").toEntity().broken)
+    }
+
+    @Test
+    fun `toDomain preserves the ignored flag`() {
+        val entity = MappingRuleEntity(
+            id = 5, bankName = "SBI", last4 = "7756",
+            budgetId = "", accountId = "", currencyCode = "", ignored = true,
+        )
+        assertTrue(entity.toDomain().ignored)
+    }
+
+    @Test
+    fun `toEntity preserves the ignored flag`() {
+        val rule = MappingRule(
+            bankName = "SBI", last4 = "7756",
+            budgetId = "", accountId = "", currencyCode = "", ignored = true,
+        )
+        assertTrue(rule.toEntity().ignored)
+    }
+
+    @Test
+    fun `a routed rule round-trips with ignored false`() {
+        val rule = MappingRule("HDFC Bank", "1234", "b1", "a1", "INR")
+        assertFalse(rule.toEntity().toDomain().ignored)
     }
 }
