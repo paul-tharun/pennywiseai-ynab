@@ -48,7 +48,7 @@ fun RulesList(
                         },
                         style = MaterialTheme.typography.bodyLarge,
                     )
-                    if (rule.broken) {
+                    if (rule.broken && !rule.ignored) {
                         Text(
                             "Target account was deleted · tap to fix",
                             style = MaterialTheme.typography.bodySmall,

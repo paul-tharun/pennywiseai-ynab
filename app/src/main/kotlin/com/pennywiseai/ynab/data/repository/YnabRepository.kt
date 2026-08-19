@@ -78,6 +78,11 @@ class YnabRepository @Inject constructor(
     private suspend fun revalidateRules(): List<MappingRule> {
         val broken = mutableListOf<MappingRule>()
         for (rule in mappingRuleDao.getAll()) {
+            if (rule.ignored) {
+                // No destination to validate; heal any row a prior refresh wrongly broke.
+                if (rule.broken) mappingRuleDao.update(rule.copy(broken = false))
+                continue
+            }
             if (!snapshotDao.accountExists(rule.budgetId, rule.accountId)) {
                 if (!rule.broken) mappingRuleDao.update(rule.copy(broken = true))
                 broken += rule.copy(broken = true).toDomain()

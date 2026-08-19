@@ -223,6 +223,34 @@ class YnabRepositoryTest {
     }
 
     @Test
+    fun `an ignored rule is never reported broken by revalidation`() = runTest {
+        db.mappingRuleDao().insert(
+            MappingRuleEntity(bankName = "HDFC Bank", last4 = "", budgetId = "", accountId = "", currencyCode = "", ignored = true),
+        )
+        api.budgets = { budgetsOk(budget("b1", "USD")) }
+        api.accountsByBudget = { accountsOk(account("a1")) }
+
+        val result = repository.saveTokenAndRefresh("pat") as SnapshotResult.Success
+
+        assertEquals(emptyList<Any>(), result.brokenRules)
+        assertFalse(db.mappingRuleDao().getAll().single().broken) // stays false: no target to break
+    }
+
+    @Test
+    fun `revalidation heals an ignored rule a prior refresh wrongly marked broken`() = runTest {
+        db.mappingRuleDao().insert(
+            MappingRuleEntity(bankName = "HDFC Bank", last4 = "", budgetId = "", accountId = "", currencyCode = "", broken = true, ignored = true),
+        )
+        api.budgets = { budgetsOk(budget("b1", "USD")) }
+        api.accountsByBudget = { accountsOk(account("a1")) }
+
+        val result = repository.refreshSnapshot() as SnapshotResult.Success
+
+        assertEquals(emptyList<Any>(), result.brokenRules)
+        assertFalse(db.mappingRuleDao().getAll().single().broken)
+    }
+
+    @Test
     fun `a successful token save clears postingPaused`() = runTest {
         postingState.setPaused(true) // simulate a prior 401
         api.budgets = { budgetsOk(budget("b1", "USD")) }
