@@ -76,8 +76,8 @@ class RulesViewModelTest {
         },
     )
 
-    private fun unrouted(id: String, bank: String, ts: Long) = ProcessedMessageEntity(
-        importId = id, sender = "s", bankName = bank, last4 = "1234",
+    private fun unrouted(id: String, bank: String, ts: Long, last4: String? = "1234") = ProcessedMessageEntity(
+        importId = id, sender = "s", bankName = bank, last4 = last4,
         amount = BigDecimal.ONE, currency = "INR",
         status = MessageStatus.SKIPPED_UNROUTED, error = null, timestamp = ts,
     )
@@ -198,5 +198,41 @@ class RulesViewModelTest {
         // ...and disappears once an ignore rule covers it (NOT EXISTS against mapping_rules).
         assertTrue(vm.suggestions.first { it.isEmpty() }.isEmpty())
         assertTrue(db.mappingRuleDao().getAll().single().ignored)
+    }
+
+    @Test
+    fun `ignoring an exact combo deletes its unrouted rows but spares other banks`() = runTest(dispatcher) {
+        val dao = db.processedMessageDao()
+        dao.upsert(unrouted("s1", "SBI", ts = 500L))
+        dao.upsert(unrouted("s2", "SBI", ts = 600L))
+        dao.upsert(unrouted("h1", "HDFC Bank", ts = 700L))
+
+        vm().ignoreSuggestion("SBI", "1234").join()
+        advanceUntilIdle()
+
+        assertEquals(listOf("HDFC Bank"), dao.getByStatus(MessageStatus.SKIPPED_UNROUTED).map { it.bankName })
+    }
+
+    @Test
+    fun `an ignore wildcard deletes every unrouted row for the bank`() = runTest(dispatcher) {
+        val dao = db.processedMessageDao()
+        dao.upsert(unrouted("s1", "SBI", ts = 500L, last4 = "1234"))
+        dao.upsert(unrouted("s2", "SBI", ts = 600L, last4 = null))
+
+        vm().saveRule(RuleDraft("SBI", last4 = null, "", "", "", editRuleId = null, ignored = true))
+        advanceUntilIdle()
+
+        assertTrue(dao.getByStatus(MessageStatus.SKIPPED_UNROUTED).isEmpty())
+    }
+
+    @Test
+    fun `an exact ignore leaves a null-tail unrouted row uncovered`() = runTest(dispatcher) {
+        val dao = db.processedMessageDao()
+        dao.upsert(unrouted("s1", "SBI", ts = 500L, last4 = null))
+
+        vm().ignoreSuggestion("SBI", "1234").join()
+        advanceUntilIdle()
+
+        assertEquals(1, dao.getByStatus(MessageStatus.SKIPPED_UNROUTED).size)
     }
 }

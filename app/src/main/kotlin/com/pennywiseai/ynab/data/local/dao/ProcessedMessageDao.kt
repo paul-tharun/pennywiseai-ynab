@@ -72,6 +72,24 @@ interface ProcessedMessageDao {
     )
     fun observeUnroutedSuggestions(status: MessageStatus): Flow<List<UnroutedSuggestion>>
 
+    /**
+     * Drop the log rows a new ignore rule now covers, restoring the pipeline's
+     * "ignored -> never logged" invariant retroactively (so they leave Home's Unrouted
+     * tally). Mirrors the suggestion query's coverage: a null [last4] is the bank
+     * wildcard (every row for the bank); a non-null last4 deletes only exact-tail
+     * matches, so a null-tail row survives — matching MappingResolver. Callers pass
+     * MessageStatus.SKIPPED_UNROUTED.
+     */
+    @Query(
+        """
+        DELETE FROM processed_messages
+        WHERE status = :status
+          AND bankName = :bankName
+          AND (:last4 IS NULL OR last4 = :last4)
+        """,
+    )
+    suspend fun deleteByStatusBankAndLast4(status: MessageStatus, bankName: String, last4: String?)
+
     /** Earliest timestamp among rows of [status], or null if none — bounds a re-drive window. */
     @Query("SELECT MIN(timestamp) FROM processed_messages WHERE status = :status")
     suspend fun getEarliestTimestampByStatus(status: MessageStatus): Long?
