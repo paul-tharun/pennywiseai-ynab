@@ -94,6 +94,11 @@ class RulesViewModel @Inject constructor(
             } else {
                 mappingRuleDao.insert(rule.toEntity())
             }
+            if (rule.ignored) {
+                processedMessageDao.deleteByStatusBankAndLast4(
+                    MessageStatus.SKIPPED_UNROUTED, rule.bankName, rule.last4,
+                )
+            }
             SaveRuleResult.Saved
         } catch (_: SQLiteConstraintException) {
             SaveRuleResult.DuplicateRoute
@@ -102,8 +107,9 @@ class RulesViewModel @Inject constructor(
 
     /**
      * One-tap ignore from a "NEEDS ROUTING" suggestion: store an ignore rule for this exact
-     * (bank, last4) so its messages drop and the combo leaves the suggestions list. A
-     * suggestion has no covering rule, so the insert cannot conflict; the result is ignored.
+     * (bank, last4) so its future messages drop, and saveRule also deletes the combo's
+     * already-logged unrouted rows so it leaves both the suggestions list and Home's
+     * Unrouted tally. A suggestion has no covering rule, so the insert cannot conflict.
      */
     fun ignoreSuggestion(bankName: String, last4: String?) = viewModelScope.launch {
         saveRule(

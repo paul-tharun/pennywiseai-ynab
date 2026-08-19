@@ -39,6 +39,10 @@ class FakeProcessedMessageDao : ProcessedMessageDao {
                 .distinct(),
         )
 
+    override suspend fun deleteByStatusBankAndLast4(status: MessageStatus, bankName: String, last4: String?) {
+        rows.values.removeAll { it.status == status && it.bankName == bankName && (last4 == null || it.last4 == last4) }
+    }
+
     override suspend fun getEarliestTimestampByStatus(status: MessageStatus): Long? =
         rows.values.filter { it.status == status }.minOfOrNull { it.timestamp }
 
