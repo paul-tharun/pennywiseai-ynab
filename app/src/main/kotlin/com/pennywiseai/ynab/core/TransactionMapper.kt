@@ -6,6 +6,7 @@ import com.pennywiseai.ynab.core.model.SaveTransaction
 import java.math.RoundingMode
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 
@@ -43,18 +44,24 @@ class TransactionMapper(private val zoneId: ZoneId = ZoneId.systemDefault()) {
     }
 
     /**
-     * The YNAB import_id for a parsed message: "PW:" + its content-deterministic id.
-     * Exposed so the pipeline can compute the log's primary key on the skip paths
-     * (non-transaction / unrouted / currency-mismatch) before it has a rule to map.
-     * map() uses this too, so the id a skipped row carries matches the id a later
-     * successful post would use (self-healing upsert, ADR-0005).
+     * The YNAB import_id for a parsed message. Exposed so the pipeline can compute the
+     * log's primary key on the skip paths before it has a rule to map; map() uses it too,
+     * so a skipped row's id matches a later successful post (ADR-0005). From the cutoff on,
+     * the id also carries the SMS send time so byte-identical SMS stay distinct (ADR-0006).
      */
-    fun importIdFor(parsed: ParsedTransaction): String =
-        IMPORT_ID_PREFIX + parsed.generateTransactionId()
+    fun importIdFor(parsed: ParsedTransaction): String {
+        val contentId = parsed.generateTransactionId()
+        if (parsed.timestamp < DATED_IMPORT_ID_SINCE_MILLIS) return IMPORT_ID_PREFIX + contentId
+        val sentAt = Instant.ofEpochMilli(parsed.timestamp).atOffset(ZoneOffset.UTC).format(SENT_AT_FORMAT)
+        return IMPORT_ID_PREFIX + contentId.take(DATED_HASH_LENGTH) + ":" + sentAt
+    }
 
     companion object {
         const val IMPORT_ID_PREFIX = "PW:"
         const val MAX_PAYEE = 50
         const val MAX_MEMO = 200
+        const val DATED_HASH_LENGTH = 18
+        val DATED_IMPORT_ID_SINCE_MILLIS: Long = Instant.parse("2026-11-16T18:30:00Z").toEpochMilli()
+        private val SENT_AT_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
     }
 }

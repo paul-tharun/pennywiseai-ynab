@@ -148,7 +148,7 @@ YNAB `SaveTransaction` fields and how they're derived:
 - `payee_name` — `merchant` (YNAB auto-matches to existing payees). Truncated to
   YNAB's 50-char limit; null/blank merchant → omit (YNAB allows no payee).
 - `memo` — `reference` (optionally plus bank name), truncated to 200 chars.
-- `import_id` — `"PW:" + generateTransactionId()`, stable per message.
+- `import_id` — `"PW:" + first18(generateTransactionId()) + ":" + UTC send time (yyyyMMddHHmmss)`, stable per message; legacy content-only id before 2026-11-17 IST (ADR-0006).
   `generateTransactionId()` is a 32-char MD5 hex, so the id is always 35 chars
   (≤ 36) — the spec's original `.take(33)` was dead code on a wrong length
   assumption and is dropped (ADR-0001). **This is the entire dedup story:** the id

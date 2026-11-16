@@ -8,10 +8,13 @@ automatically. This glossary fixes the vocabulary the app's own code uses;
 ## Language
 
 **import_id**:
-The per-message deduplication key sent to YNAB. Derived content-only as
-`"PW:" + parser-core's generateTransactionId()` — a hash of
-`sender | amount | md5(smsBody)` that deliberately excludes the timestamp so the
-real-time and backfill capture paths produce the same key for one message.
+The per-message deduplication key sent to YNAB:
+`"PW:" + first18(generateTransactionId()) + ":" + yyyyMMddHHmmss` (UTC send time).
+`generateTransactionId()` hashes `sender | amount | md5(smsBody)`; the send time
+keeps byte-identical SMS (e.g. Scapia, which has no reference) distinct. Both
+capture paths read the same service-center send time, so they produce the same
+key for one message. SMS sent before 2026-11-17 IST keep the legacy content-only
+`"PW:" + generateTransactionId()` (ADR-0006).
 _Avoid_: dedup hash, transaction id.
 
 **Processed message**:
